@@ -1,0 +1,9 @@
+# XMake
+.xmake/
+build/
+
+# Compilation database
+compile_commands.json
+
+# Editor / LSP
+.cache/

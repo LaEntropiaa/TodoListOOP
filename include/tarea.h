@@ -36,6 +36,9 @@ class ListaTarea {
   public:
     TareaErr get_by_index(size_t index);
     TareaErr edit(size_t index);
+    size_t len();
+    ListaTarea();
+    ~ListaTarea();
 
     virtual TareaErr remove(size_t index) = 0;
     virtual TareaErr add(Tarea) = 0;

@@ -10,7 +10,7 @@ primero no uses visual studio, usa visual studio code, segundo, asegurate de que
 # QUE MIERDA COMO SUBO MI CODIGO, TE LO MANDO POR WHATS?
 Matate, segundo, subimos las cosas haciendo commits en github, primero porfavor aprende a usar git, como hacer cambios, guardarlos y ponerlos en un commit con un mensajito.
 
-Ya que aprendiste un poquito de git, NO TRABAJES EN LA RAMA MAIN, nadie toca main, ni aunque quieran pueden. Hagan uan rama, si les toco de que implementar x funciones de la clase tarea, hacen una rama de que addition-tarea-functionality. Ya que hayan terminado y hecho todos sus commits hacen un pull request. VOY A MATAR A QUIEN SEA QUE HAGA UN PULL REQUEST SIN QUE YO LO AUTORIZE.
+Ya que aprendiste un poquito de git, NO TRABAJES EN LA RAMA MAIN, nadie toca main, ni aunque quieran pueden. Hagan uan rama, si les toco de que implementar x funciones de la clase tarea, hacen una rama de que addition-tarea-functionality. Ya que hayan terminado y hecho todos sus commits hacen un pull request. VOY A MATAR A QUIEN SEA QUE HAGA UN MERGE EN UN PULL REQUEST SIN QUE YO LO AUTORIZE.
 
 Cuarto, si pueden dejen los nombres bonitos para sus ramas y sus commits, preguntenle a chat o a quien sea como se hacen nombres de commits y ramas que sean concisos, profesionales y efectivos.
 

@@ -17,9 +17,26 @@ class Tarea {
           bool is_completed)
         : title(std::move(title)), description(std::move(description)),
           date(std::move(date)), is_completed(is_completed) {};
+
+    std::string get_title() const{
+      return title;
+    }
+
+    std::optional<std::string> get_description() const {
+      return description;
+    }
+
+    std::optional<std::string> get_date() const {
+      return date;
+    }
+
+    bool get_is_completed() const {
+      return is_completed;
+    }
 };
 
 enum class TareaErr {
+    None,
     OverSizeTitle,
     OverSizeDesc,
     InvalidDate,
@@ -37,8 +54,11 @@ class ListaTarea {
     TareaErr get_by_index(size_t index);
     TareaErr edit(size_t index);
     size_t len();
-    ListaTarea();
-    ~ListaTarea();
+
+    void print();
+
+    ListaTarea() = default;
+    virtual ~ListaTarea() = default;
 
     virtual TareaErr remove(size_t index) = 0;
     virtual TareaErr add(Tarea) = 0;
@@ -50,6 +70,8 @@ class InboxLista : public ListaTarea {
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;
     std::expected<Tarea, TareaErr> get() override;
+
+    void print();
 };
 
 class TodoLista : public ListaTarea {

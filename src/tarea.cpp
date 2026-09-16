@@ -53,10 +53,17 @@ void InboxLista::print() {
         std::cout << "No hay tareas." << std::endl;
         return;
     }
-
+    
     for (size_t i = 0; i < tareas.size(); i++) {
         std::cout << i << ". "
-                  << tareas[i].get_title()
-                  << std::endl;
+                  << tareas[i].get_title();
+
+        if (tareas[i].get_is_completed()) {
+            std::cout << " [Completada]";
+        } else {
+            std::cout << " [Pendiente]";
+        }
+
+        std::cout << std::endl;
     }
 }

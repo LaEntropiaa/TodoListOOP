@@ -165,10 +165,10 @@ void UI::read_option() {
     int option;
 
     std::cout << "Seleccione una opción:\n";
-    std::cout << "1. Agregar lista\n";
-    std::cout << "2. Eliminar lista\n";
-    std::cout << "3. Actualizar lista\n";
-    std::cout << "4. Mostrar listas\n";
+    std::cout << "1. Agregar tarea\n";
+    std::cout << "2. Eliminar tarea\n";
+    std::cout << "3. Actualizar tarea\n";
+    std::cout << "4. Mostrar tareas\n";
     std::cout << "5. Salir\n";
 
     std::cin >> option;

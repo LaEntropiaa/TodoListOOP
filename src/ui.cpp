@@ -79,11 +79,21 @@ void UI::update_task_dialogue() {
     std::string date;
 
     std::cout << "Ingrese el numero de la tarea a actualizar: ";
-    std::cin >> index;
+
+     while (!(std::cin >> index)) {
+        std::cin.clear();
+        std::cin.ignore(10000, '\n');
+        std::cout << "Entrada invalida, ingrese un numero: ";
+    }
     std::cin.ignore();
 
     std::cout << "Ingrese el nuevo titulo: ";
     std::getline(std::cin, title);
+
+    if(title.empty()){
+        std::cerr << "El título no puede estar vacío." << std::endl;
+        return;
+    }
 
     std::cout << "Ingrese la nueva descripcion (opcional): ";
     std::getline(std::cin, description);
@@ -102,25 +112,20 @@ void UI::update_task_dialogue() {
         date_opt = date;
     }
 
-    TareaErr error = list.remove(index);
+    Tarea nueva_tarea(title, desc_opt, date_opt, false);
+
+    TareaErr error = list.add(nueva_tarea);
 
     if (error != TareaErr::None) {
         show_error(error);
         return;
     }
 
-    Tarea nueva_tarea(
-        title,
-        desc_opt,
-        date_opt,
-        false
-    );
+    error = list.remove(index);
 
-    error = list.add(nueva_tarea);
-
-    if (error == TareaErr::None) {
+    if(error == TareaErr::None) {
         std::cout << "Tarea actualizada exitosamente." << std::endl;
-    } else {
+    } else{
         show_error(error);
     }
 }

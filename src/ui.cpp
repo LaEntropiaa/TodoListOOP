@@ -55,7 +55,12 @@ void UI::remove_task_dialogue() {
     size_t index;
 
     std::cout << "Ingrese el numero de la tarea a eliminar: ";
-    std::cin >> index;
+
+     while (!(std::cin >> index)) {
+        std::cin.clear();
+        std::cin.ignore(10000, '\n');
+        std::cout << "Entrada invalida, ingrese un numero: ";
+    }
     std::cin.ignore();
 
     TareaErr error = list.remove(index);

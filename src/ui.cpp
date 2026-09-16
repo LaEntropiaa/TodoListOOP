@@ -13,6 +13,11 @@ void UI::add_task_dialogue() {
     std::cout << "Ingrese el titulo de la tarea: ";
     std::getline(std::cin, title);
 
+    if (title.empty()) {
+        std::cerr << "El título de la tarea no puede estar vacío.";
+        return;
+    }
+
     std::cout << "Ingrese una descripcion (opcional): ";
     std::getline(std::cin, description);
 
@@ -50,7 +55,12 @@ void UI::remove_task_dialogue() {
     size_t index;
 
     std::cout << "Ingrese el numero de la tarea a eliminar: ";
-    std::cin >> index;
+
+     while (!(std::cin >> index)) {
+        std::cin.clear();
+        std::cin.ignore(10000, '\n');
+        std::cout << "Entrada invalida, ingrese un numero: ";
+    }
     std::cin.ignore();
 
     TareaErr error = list.remove(index);
@@ -69,11 +79,21 @@ void UI::update_task_dialogue() {
     std::string date;
 
     std::cout << "Ingrese el numero de la tarea a actualizar: ";
-    std::cin >> index;
+
+     while (!(std::cin >> index)) {
+        std::cin.clear();
+        std::cin.ignore(10000, '\n');
+        std::cout << "Entrada invalida, ingrese un numero: ";
+    }
     std::cin.ignore();
 
     std::cout << "Ingrese el nuevo titulo: ";
     std::getline(std::cin, title);
+
+    if(title.empty()){
+        std::cerr << "El título no puede estar vacío." << std::endl;
+        return;
+    }
 
     std::cout << "Ingrese la nueva descripcion (opcional): ";
     std::getline(std::cin, description);
@@ -92,25 +112,20 @@ void UI::update_task_dialogue() {
         date_opt = date;
     }
 
-    TareaErr error = list.remove(index);
+    Tarea nueva_tarea(title, desc_opt, date_opt, false);
+
+    TareaErr error = list.add(nueva_tarea);
 
     if (error != TareaErr::None) {
         show_error(error);
         return;
     }
 
-    Tarea nueva_tarea(
-        title,
-        desc_opt,
-        date_opt,
-        false
-    );
+    error = list.remove(index);
 
-    error = list.add(nueva_tarea);
-
-    if (error == TareaErr::None) {
+    if(error == TareaErr::None) {
         std::cout << "Tarea actualizada exitosamente." << std::endl;
-    } else {
+    } else{
         show_error(error);
     }
 }
@@ -142,27 +157,6 @@ void UI::show_error(TareaErr e) {
     }
 }
 
-
-void ListaTarea::print() {
-    if (tareas.empty()) {
-        std::cout << "No hay tareas." << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < tareas.size(); i++) {
-        std::cout << i << ". "
-                  << tareas[i].get_title();
-
-        if (tareas[i].get_is_completed()) {
-            std::cout << " [Completada]";
-        } else {
-            std::cout << " [Pendiente]";
-        }
-
-        std::cout << std::endl;
-    }
-}
-
   void UI::print_list() {
       list.print();
   }
@@ -171,10 +165,10 @@ void UI::read_option() {
     int option;
 
     std::cout << "Seleccione una opción:\n";
-    std::cout << "1. Agregar lista\n";
-    std::cout << "2. Eliminar lista\n";
-    std::cout << "3. Actualizar lista\n";
-    std::cout << "4. Mostrar listas\n";
+    std::cout << "1. Agregar tarea\n";
+    std::cout << "2. Eliminar tarea\n";
+    std::cout << "3. Actualizar tarea\n";
+    std::cout << "4. Mostrar tareas\n";
     std::cout << "5. Salir\n";
 
     std::cin >> option;

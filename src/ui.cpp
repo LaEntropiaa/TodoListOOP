@@ -13,6 +13,11 @@ void UI::add_task_dialogue() {
     std::cout << "Ingrese el titulo de la tarea: ";
     std::getline(std::cin, title);
 
+    if (title.empty()) {
+        std::cerr << "El título de la tarea no puede estar vacío.";
+        return;
+    }
+
     std::cout << "Ingrese una descripcion (opcional): ";
     std::getline(std::cin, description);
 

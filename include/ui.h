@@ -16,6 +16,7 @@ class UI {
     void update_task_dialogue();
 
   public:
+    void clear_screen();
     void print_list();
     void read_option();
     bool is_running();

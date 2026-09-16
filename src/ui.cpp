@@ -130,6 +130,10 @@ void UI::update_task_dialogue() {
     }
 }
 
+void UI::clear_screen() {
+    std::cout << "\033[2J\033[1;1H";
+}
+
 void UI::show_error(TareaErr e) {
     switch (e) {
         case TareaErr::OverSizeTitle:

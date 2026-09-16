@@ -1,3 +1,5 @@
+#pragma once
+
 #include "tarea.h"
 
 class ProgrammState {

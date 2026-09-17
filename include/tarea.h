@@ -53,8 +53,8 @@ class ListaTarea {
     std::vector<Tarea> tareas;
 
   public:
-    TareaErr get_by_index(size_t index);
-    TareaErr edit(size_t index);
+    std::expected<Tarea, TareaErr> get_by_index(size_t index);
+    std::expected<Tarea, TareaErr> edit(size_t index, Tarea nueva);
     size_t len();
 
     void print();

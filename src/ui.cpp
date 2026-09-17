@@ -130,6 +130,37 @@ void UI::update_task_dialogue() {
     }
 }
 
+void UI::complete_task_dialogue() {
+    size_t index;
+
+    std::cout << "Ingrese el numero de la tarea a marcar como completada: ";
+
+     while (!(std::cin >> index)) {
+        std::cin.clear();
+        std::cin.ignore(10000, '\n');
+        std::cout << "Entrada invalida, ingrese un numero: ";
+    }
+    std::cin.ignore();
+
+    std::expected<Tarea, TareaErr> tarea = list.get_by_index(index);
+
+    if (!tarea.has_value()) {
+        show_error(tarea.error());
+        return;
+    }
+
+    Tarea actualizada = tarea.value();
+    actualizada.set_completed(true);
+
+    std::expected<Tarea, TareaErr> resultado = list.edit(index, actualizada);
+
+    if (resultado.has_value()) {
+        std::cout << "Tarea marcada como completada." << std::endl;
+    } else {
+        show_error(resultado.error());
+    }
+}
+
 void UI::clear_screen() {
     std::cout << "\033[2J\033[1;1H";
 }
@@ -173,7 +204,8 @@ void UI::read_option() {
     std::cout << "2. Eliminar tarea\n";
     std::cout << "3. Actualizar tarea\n";
     std::cout << "4. Mostrar tareas\n";
-    std::cout << "5. Salir\n";
+    std::cout << "5. Marcar tarea como completada\n";
+    std::cout << "6. Salir\n";
 
     std::cin >> option;
     std::cin.ignore();
@@ -196,6 +228,10 @@ void UI::read_option() {
             break;
 
         case 5:
+            complete_task_dialogue();
+            break;
+
+        case 6:
             is_on = false;
             break;
 

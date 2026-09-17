@@ -14,6 +14,7 @@ class UI {
     void add_task_dialogue();
     void remove_task_dialogue();
     void update_task_dialogue();
+    void complete_task_dialogue();
 
   public:
     void clear_screen();

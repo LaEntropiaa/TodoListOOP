@@ -35,6 +35,10 @@ class Tarea {
     bool get_is_completed() const {
       return is_completed;
     }
+
+    void set_completed(bool value) {
+      is_completed = value;
+    }
 };
 
 enum class TareaErr {
@@ -57,7 +61,7 @@ class ListaTarea {
     std::expected<Tarea, TareaErr> edit(size_t index, Tarea nueva);
     size_t len();
 
-    void print();
+    virtual void print();
 
     ListaTarea() = default;
     virtual ~ListaTarea() = default;
@@ -72,8 +76,6 @@ class InboxLista : public ListaTarea {
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;
     std::expected<Tarea, TareaErr> get() override;
-
-    void print();
 };
 
 class TodoLista : public ListaTarea {

@@ -5,11 +5,31 @@
 
 // Lista Tarea
 
-// ListaTarea::ListaTarea() {
-// }
+std::expected<Tarea, TareaErr> ListaTarea::get_by_index(size_t index) {
+    if (tareas.empty()) {
+        return std::unexpected(TareaErr::EmptyList);
+    }
 
-// ListaTarea::~ListaTarea() {
-// }
+    if (index >= tareas.size()) {
+        return std::unexpected(TareaErr::IndexErr);
+    }
+
+    return tareas[index];
+}
+
+std::expected<Tarea, TareaErr> ListaTarea::edit(size_t index, Tarea nueva) {
+    if (tareas.empty()) {
+        return std::unexpected(TareaErr::EmptyList);
+    }
+
+    if (index >= tareas.size()) {
+        return std::unexpected(TareaErr::IndexErr);
+    }
+
+    tareas[index] = std::move(nueva);
+
+    return tareas[index];
+}
 
 size_t ListaTarea::len() {
     return tareas.size();

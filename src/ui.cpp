@@ -175,9 +175,13 @@ void UI::read_option() {
     std::cout << "4. Mostrar tareas\n";
     std::cout << "5. Salir\n";
 
-    std::cin >> option;
+    while (!(std::cin >> option)) {
+    std::cin.clear();
+    std::cin.ignore(10000, '\n');
+    std::cout << "Entrada invalida, ingrese un numero: ";
+    }
     std::cin.ignore();
-
+    
     switch (option) {
         case 1:
             add_task_dialogue();

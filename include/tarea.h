@@ -5,6 +5,12 @@
 #include <string>
 #include <vector>
 
+namespace TareaLimits {
+    inline constexpr size_t MAX_TITLE_LEN = 100;
+    inline constexpr size_t MAX_DESC_LEN = 500;
+    inline constexpr size_t DATE_LEN = 10; // DD/MM/YYYY
+}
+
 class Tarea {
   private:
     std::string title;
@@ -55,6 +61,8 @@ enum class TareaErr {
 class ListaTarea {
   protected:
     std::vector<Tarea> tareas;
+
+    static TareaErr validate(const Tarea& tarea);
 
   public:
     std::expected<Tarea, TareaErr> get_by_index(size_t index);

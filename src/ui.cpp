@@ -1,17 +1,42 @@
 #include "ui.h"
 
+#include <cstdio>
 #include <iostream>
 #include <string>
 
 // Inicio Luis el 08/09/2026
 
-void UI::add_task_dialogue() {
-    std::string title;
-    std::string description;
-    std::string date;
+namespace {
+    // Tamano fijo para el buffer de lectura, suficiente para el limite mas grande (descripcion).
+    constexpr size_t READ_BUFFER_SIZE = TareaLimits::MAX_DESC_LEN + 2;
 
+    // Lee una linea de stdin con fgets, sin permitir mas de max_len caracteres.
+    // Si el usuario escribe de mas, el sobrante se descarta hasta el siguiente '\n'.
+    std::string read_line_limited(size_t max_len) {
+        char buffer[READ_BUFFER_SIZE];
+        size_t capped_len = max_len < TareaLimits::MAX_DESC_LEN ? max_len : TareaLimits::MAX_DESC_LEN;
+        size_t read_size = capped_len + 2; // +1 '\n', +1 '\0'
+
+        if (!std::fgets(buffer, static_cast<int>(read_size), stdin)) {
+            return "";
+        }
+
+        std::string result(buffer);
+
+        if (!result.empty() && result.back() == '\n') {
+            result.pop_back();
+        } else {
+            int c;
+            while ((c = std::getchar()) != '\n' && c != EOF) {}
+        }
+
+        return result;
+    }
+}
+
+void UI::add_task_dialogue() {
     std::cout << "Ingrese el titulo de la tarea: ";
-    std::getline(std::cin, title);
+    std::string title = read_line_limited(TareaLimits::MAX_TITLE_LEN);
 
     if (title.empty()) {
         std::cerr << "El título de la tarea no puede estar vacío.";
@@ -19,10 +44,10 @@ void UI::add_task_dialogue() {
     }
 
     std::cout << "Ingrese una descripcion (opcional): ";
-    std::getline(std::cin, description);
+    std::string description = read_line_limited(TareaLimits::MAX_DESC_LEN);
 
     std::cout << "Ingrese una fecha (opcional): ";
-    std::getline(std::cin, date);
+    std::string date = read_line_limited(TareaLimits::DATE_LEN);
 
     std::optional<std::string> desc_opt;
     std::optional<std::string> date_opt;
@@ -74,9 +99,6 @@ void UI::remove_task_dialogue() {
 
 void UI::update_task_dialogue() {
     size_t index;
-    std::string title;
-    std::string description;
-    std::string date;
 
     std::cout << "Ingrese el numero de la tarea a actualizar: ";
 
@@ -88,7 +110,7 @@ void UI::update_task_dialogue() {
     std::cin.ignore();
 
     std::cout << "Ingrese el nuevo titulo: ";
-    std::getline(std::cin, title);
+    std::string title = read_line_limited(TareaLimits::MAX_TITLE_LEN);
 
     if(title.empty()){
         std::cerr << "El título no puede estar vacío." << std::endl;
@@ -96,10 +118,10 @@ void UI::update_task_dialogue() {
     }
 
     std::cout << "Ingrese la nueva descripcion (opcional): ";
-    std::getline(std::cin, description);
+    std::string description = read_line_limited(TareaLimits::MAX_DESC_LEN);
 
     std::cout << "Ingrese la nueva fecha (opcional): ";
-    std::getline(std::cin, date);
+    std::string date = read_line_limited(TareaLimits::DATE_LEN);
 
     std::optional<std::string> desc_opt;
     std::optional<std::string> date_opt;
@@ -207,7 +229,11 @@ void UI::read_option() {
     std::cout << "5. Marcar tarea como completada\n";
     std::cout << "6. Salir\n";
 
-    std::cin >> option;
+    while (!(std::cin >> option)) {
+        std::cin.clear();
+        std::cin.ignore(10000, '\n');
+        std::cout << "Entrada invalida, ingrese un numero: ";
+    }
     std::cin.ignore();
 
     switch (option) {

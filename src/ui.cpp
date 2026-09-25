@@ -235,7 +235,7 @@ void UI::read_option() {
         std::cout << "Entrada invalida, ingrese un numero: ";
     }
     std::cin.ignore();
-
+    
     switch (option) {
         case 1:
             add_task_dialogue();

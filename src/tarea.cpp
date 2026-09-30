@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <expected>
+#include <ctime>
 
 // Lista Tarea
 
@@ -31,6 +32,31 @@ namespace {
 
         return day >= 1 && day <= 31 && month >= 1 && month <= 12;
     }
+
+    // Convierte "DD/MM/YYYY" a un numero comparable: AAAAMMDD
+    long date_to_key(const std::string& date) {
+        int day = (date[0] - '0') *  10 + (date[1] - '0');
+        int month = (date[3] - '0') * 10 + (date[4] - '0');
+        int year = 0;
+
+        for (size_t i = 6; i < date.size(); i++) {
+            year = year * 10 + (date[i] - '0');
+        }
+
+        return static_cast<long>(year) * 10000 + month * 100 + day;
+     }
+
+     // Fecha de hoy en el formato AAAAMMDD
+     long today_key() {
+        std::time_t t = std::time(nullptr);
+        std::tm local_tm = *std::localtime(&t);
+
+        int year = local_tm.tm_year + 1900;
+        int month = local_tm.tm_mon + 1;
+        int day = local_tm.tm_mday;
+
+        return static_cast<long>(year) * 10000 + month * 100 + day;
+     }
 }
 
 TareaErr ListaTarea::validate(const Tarea& tarea) {

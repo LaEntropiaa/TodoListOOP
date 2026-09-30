@@ -209,6 +209,14 @@ void UI::show_error(TareaErr e) {
             std::cerr << "Error: La lista esta vacia." << std::endl;
             break;
 
+        case TareaErr::NotOverdue:
+            std::cerr << "Error: La tarea aun no esta vencida." << std::endl;
+            break;
+
+        case TareaErr::AlreadyCompleted:
+            std::cerr << "Error: No se puede agregar una tarea ya completada." << std::endl;
+            break;
+
         case TareaErr::None:
             break;
     }

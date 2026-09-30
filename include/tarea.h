@@ -54,6 +54,8 @@ enum class TareaErr {
     InvalidDate,
     IndexErr,
     EmptyList,
+    NotOverdue,
+    AlreadyCompleted,
 
     // TODO - functions to pass info for errors, specially for the UI
 };

@@ -1,79 +1,24 @@
 #include "tarea.h"
 
-#include <iostream>
-#include <expected>
 #include <ctime>
+#include <expected>
+#include <iostream>
 
-// Lista Tarea
-
-namespace {
-    bool is_digit(char c) {
-        return c >= '0' && c <= '9';
-    }
-
-    // Espera exactamente el formato DD/MM/YYYY
-    bool is_valid_date(const std::string& date) {
-        if (date.size() != TareaLimits::DATE_LEN || date[2] != '/' || date[5] != '/') {
-            return false;
-        }
-
-        for (size_t i = 0; i < date.size(); i++) {
-            if (i == 2 || i == 5) {
-                continue;
-            }
-
-            if (!is_digit(date[i])) {
-                return false;
-            }
-        }
-
-        int day = (date[0] - '0') * 10 + (date[1] - '0');
-        int month = (date[3] - '0') * 10 + (date[4] - '0');
-
-        return day >= 1 && day <= 31 && month >= 1 && month <= 12;
-    }
-
-    // Convierte "DD/MM/YYYY" a un numero comparable: AAAAMMDD
-    long date_to_key(const std::string& date) {
-        int day = (date[0] - '0') *  10 + (date[1] - '0');
-        int month = (date[3] - '0') * 10 + (date[4] - '0');
-        int year = 0;
-
-        for (size_t i = 6; i < date.size(); i++) {
-            year = year * 10 + (date[i] - '0');
-        }
-
-        return static_cast<long>(year) * 10000 + month * 100 + day;
-     }
-
-     // Fecha de hoy en el formato AAAAMMDD
-     long today_key() {
-        std::time_t t = std::time(nullptr);
-        std::tm local_tm = *std::localtime(&t);
-
-        int year = local_tm.tm_year + 1900;
-        int month = local_tm.tm_mon + 1;
-        int day = local_tm.tm_mday;
-
-        return static_cast<long>(year) * 10000 + month * 100 + day;
-     }
-}
-
-TareaErr ListaTarea::validate(const Tarea& tarea) {
-    if (tarea.get_title().size() > TareaLimits::MAX_TITLE_LEN) {
+TareaErr ListaTarea::validate(const Tarea &tarea) {
+    if (tarea.get_title().size() > Tarea::MAX_TITLE) {
         return TareaErr::OverSizeTitle;
     }
 
     if (tarea.get_description().has_value() &&
-        tarea.get_description()->size() > TareaLimits::MAX_DESC_LEN) {
+        tarea.get_description()->size() > Tarea::MAX_DESC) {
         return TareaErr::OverSizeDesc;
     }
 
-    if (tarea.get_date().has_value() && !is_valid_date(*tarea.get_date())) {
+    if (tarea.get_date().has_value() && !tarea.get_date()->ok()) {
         return TareaErr::InvalidDate;
     }
 
-    return TareaErr::None;
+    return TareaErr::Ok;
 }
 
 std::expected<Tarea, TareaErr> ListaTarea::get_by_index(size_t index) {
@@ -97,7 +42,7 @@ std::expected<Tarea, TareaErr> ListaTarea::edit(size_t index, Tarea nueva) {
         return std::unexpected(TareaErr::IndexErr);
     }
 
-    tareas[index] = std::move(nueva);
+    tareas[index] = nueva;
 
     return tareas[index];
 }
@@ -113,8 +58,7 @@ void ListaTarea::print() {
     }
 
     for (size_t i = 0; i < tareas.size(); i++) {
-        std::cout << i << ". "
-                  << tareas[i].get_title();
+        std::cout << i << ". " << tareas[i].get_title();
 
         if (tareas[i].get_is_completed()) {
             std::cout << " [Completada]";
@@ -131,15 +75,14 @@ void ListaTarea::print() {
 TareaErr InboxLista::add(Tarea tarea) {
     TareaErr error = validate(tarea);
 
-    if (error != TareaErr::None) {
+    if (error != TareaErr::Ok) {
         return error;
     }
 
-    tareas.push_back(std::move(tarea));
+    tareas.push_back(tarea);
 
-    return TareaErr::None;
+    return TareaErr::Ok;
 }
-
 
 TareaErr InboxLista::remove(size_t index) {
     if (tareas.empty()) {
@@ -152,9 +95,8 @@ TareaErr InboxLista::remove(size_t index) {
 
     tareas.erase(tareas.begin() + index);
 
-    return TareaErr::None;
+    return TareaErr::Ok;
 }
-
 
 std::expected<Tarea, TareaErr> InboxLista::get() {
     if (tareas.empty()) {

@@ -56,6 +56,8 @@ enum class TareaErr {
     IndexErr,
     EmptyList,
     InvalidOption,
+    NotOverdue,
+    AlreadyCompleted,
     // TODO - functions to pass info for errors, specially for the UI
 };
 
@@ -95,6 +97,9 @@ class TodoLista : public ListaTarea {
 };
 
 class DueLista : public ListaTarea {
+  private:
+    static std::chrono::year_month_day today();
+    
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;

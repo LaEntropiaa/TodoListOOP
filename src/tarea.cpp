@@ -78,6 +78,10 @@ void ListaTarea::print() {
     for (size_t i = 0; i < tareas.size(); i++) {
         std::cout << i << ". " << tareas[i].get_title();
 
+        if (tareas[i].get_date().has_value()) {
+        std::cout << " (" << format_date(*tareas[i].get_date()) << ")";
+    }
+
         if (tareas[i].get_is_completed()) {
             std::cout << " [Completada]";
         } else {

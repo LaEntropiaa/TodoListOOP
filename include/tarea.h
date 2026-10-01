@@ -66,6 +66,7 @@ class ListaTarea {
     std::vector<Tarea> tareas;
 
     static TareaErr validate(const Tarea &tarea);
+    static std::string format_date(const std::chrono::year_month_day& date);
 
   public:
     std::expected<Tarea, TareaErr> get_by_index(size_t index);

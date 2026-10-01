@@ -2,6 +2,8 @@
 
 #include "database.h"
 #include "tarea.h"
+#include <chrono>
+#include <string>
 
 class UI {
   private:
@@ -9,6 +11,8 @@ class UI {
     bool is_on;
     // More lists for the future
     // Database interaction necessary
+    static std::optional<std::string> read_until(std::size_t limit);
+    static std::optional<std::chrono::year_month_day> parse_date(const std::string& text);
 
     void show_error(TareaErr e);
     void add_task_dialogue();

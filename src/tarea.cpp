@@ -1,53 +1,24 @@
 #include "tarea.h"
 
-#include <iostream>
+#include <ctime>
 #include <expected>
+#include <iostream>
 
-// Lista Tarea
-
-namespace {
-    bool is_digit(char c) {
-        return c >= '0' && c <= '9';
-    }
-
-    // Espera exactamente el formato DD/MM/YYYY
-    bool is_valid_date(const std::string& date) {
-        if (date.size() != TareaLimits::DATE_LEN || date[2] != '/' || date[5] != '/') {
-            return false;
-        }
-
-        for (size_t i = 0; i < date.size(); i++) {
-            if (i == 2 || i == 5) {
-                continue;
-            }
-
-            if (!is_digit(date[i])) {
-                return false;
-            }
-        }
-
-        int day = (date[0] - '0') * 10 + (date[1] - '0');
-        int month = (date[3] - '0') * 10 + (date[4] - '0');
-
-        return day >= 1 && day <= 31 && month >= 1 && month <= 12;
-    }
-}
-
-TareaErr ListaTarea::validate(const Tarea& tarea) {
-    if (tarea.get_title().size() > TareaLimits::MAX_TITLE_LEN) {
+TareaErr ListaTarea::validate(const Tarea &tarea) {
+    if (tarea.get_title().size() > Tarea::MAX_TITLE) {
         return TareaErr::OverSizeTitle;
     }
 
     if (tarea.get_description().has_value() &&
-        tarea.get_description()->size() > TareaLimits::MAX_DESC_LEN) {
+        tarea.get_description()->size() > Tarea::MAX_DESC) {
         return TareaErr::OverSizeDesc;
     }
 
-    if (tarea.get_date().has_value() && !is_valid_date(*tarea.get_date())) {
+    if (tarea.get_date().has_value() && !tarea.get_date()->ok()) {
         return TareaErr::InvalidDate;
     }
 
-    return TareaErr::None;
+    return TareaErr::Ok;
 }
 
 std::expected<Tarea, TareaErr> ListaTarea::get_by_index(size_t index) {
@@ -71,13 +42,31 @@ std::expected<Tarea, TareaErr> ListaTarea::edit(size_t index, Tarea nueva) {
         return std::unexpected(TareaErr::IndexErr);
     }
 
-    tareas[index] = std::move(nueva);
+    tareas[index] = nueva;
 
     return tareas[index];
 }
 
 size_t ListaTarea::len() {
     return tareas.size();
+}
+
+std::string ListaTarea::format_date(const std::chrono::year_month_day& date) {
+    unsigned day = static_cast<unsigned>(date.day());
+    unsigned month = static_cast<unsigned>(date.month());
+    int year = static_cast<int>(date.year());
+
+    std::string result;
+
+    if (day < 10) result += '0';
+    result += std::to_string(day) + "/";
+
+    if (month < 10) result += '0';
+    result += std::to_string(month) + "/";
+
+    result += std::to_string(year);
+
+    return result;
 }
 
 void ListaTarea::print() {
@@ -87,8 +76,11 @@ void ListaTarea::print() {
     }
 
     for (size_t i = 0; i < tareas.size(); i++) {
-        std::cout << i << ". "
-                  << tareas[i].get_title();
+        std::cout << i << ". " << tareas[i].get_title();
+
+        if (tareas[i].get_date().has_value()) {
+        std::cout << " (" << format_date(*tareas[i].get_date()) << ")";
+    }
 
         if (tareas[i].get_is_completed()) {
             std::cout << " [Completada]";
@@ -105,15 +97,14 @@ void ListaTarea::print() {
 TareaErr InboxLista::add(Tarea tarea) {
     TareaErr error = validate(tarea);
 
-    if (error != TareaErr::None) {
+    if (error != TareaErr::Ok) {
         return error;
     }
 
-    tareas.push_back(std::move(tarea));
+    tareas.push_back(tarea);
 
-    return TareaErr::None;
+    return TareaErr::Ok;
 }
-
 
 TareaErr InboxLista::remove(size_t index) {
     if (tareas.empty()) {
@@ -126,11 +117,72 @@ TareaErr InboxLista::remove(size_t index) {
 
     tareas.erase(tareas.begin() + index);
 
-    return TareaErr::None;
+    return TareaErr::Ok;
 }
 
-
 std::expected<Tarea, TareaErr> InboxLista::get() {
+    if (tareas.empty()) {
+        return std::unexpected(TareaErr::EmptyList);
+    }
+
+    return tareas.front();
+}
+
+// DUELISTA
+
+std::chrono::year_month_day DueLista::today() {
+    return std::chrono::year_month_day{
+        std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())
+    };
+}
+
+TareaErr DueLista::add(Tarea tarea) {
+    if (!tarea.get_date().has_value()) {
+        return TareaErr::InvalidDate;
+    }
+    
+    TareaErr error = validate(tarea);
+
+    if (error != TareaErr::Ok) {
+        return error;
+    }
+
+    if (tarea.get_is_completed()) {
+        return TareaErr::AlreadyCompleted;
+    }
+
+    std::chrono::year_month_day fecha = *tarea.get_date();
+
+    if (fecha >= today()) {
+        return TareaErr::NotOverdue;
+    }
+
+    size_t pos = 0;
+
+    while (pos < tareas.size() && *tareas[pos].get_date() <= fecha) {
+        pos++;
+    }
+
+    tareas.insert(tareas.begin() + pos, std::move(tarea));
+
+    return TareaErr::Ok;
+}
+
+TareaErr DueLista::remove(size_t index) {
+    if (tareas.empty()) {
+        return TareaErr::EmptyList;
+    }
+
+    if (index >= tareas.size()) {
+        return TareaErr::IndexErr;
+    }
+
+    tareas.erase(tareas.begin() + index);
+
+    return TareaErr::Ok;
+}
+
+std::expected<Tarea, TareaErr> DueLista::get() {
     if (tareas.empty()) {
         return std::unexpected(TareaErr::EmptyList);
     }

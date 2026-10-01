@@ -1,76 +1,94 @@
 #include "ui.h"
+#include "tarea.h"
 
 #include <cstdio>
+#include <expected>
 #include <iostream>
+#include <optional>
+#include <print>
 #include <string>
 
 // Inicio Luis el 08/09/2026
 
-namespace {
-    // Tamano fijo para el buffer de lectura, suficiente para el limite mas grande (descripcion).
-    constexpr size_t READ_BUFFER_SIZE = TareaLimits::MAX_DESC_LEN + 2;
+std::optional<std::string> UI::read_until(std::size_t limit) {
+    std::string result;
+    result.reserve(limit);
 
-    // Lee una linea de stdin con fgets, sin permitir mas de max_len caracteres.
-    // Si el usuario escribe de mas, el sobrante se descarta hasta el siguiente '\n'.
-    std::string read_line_limited(size_t max_len) {
-        char buffer[READ_BUFFER_SIZE];
-        size_t capped_len = max_len < TareaLimits::MAX_DESC_LEN ? max_len : TareaLimits::MAX_DESC_LEN;
-        size_t read_size = capped_len + 2; // +1 '\n', +1 '\0'
+    std::getline(std::cin, result);
 
-        if (!std::fgets(buffer, static_cast<int>(read_size), stdin)) {
-            return "";
-        }
-
-        std::string result(buffer);
-
-        if (!result.empty() && result.back() == '\n') {
-            result.pop_back();
-        } else {
-            int c;
-            while ((c = std::getchar()) != '\n' && c != EOF) {}
-        }
-
-        return result;
+    if (result.size() < 1) {
+        return std::nullopt;
     }
+
+    if (result.size() > limit) {
+        result.resize(limit);
+    }
+
+    return result;
+}
+
+std::optional<std::chrono::year_month_day> UI::parse_date(const std::string& text) {
+    if (text.size() != Tarea::MAX_DATE || text[2] != '/' || text[5] != '/') {
+        return std::nullopt;
+    }
+
+    for (size_t i = 0; i < text.size(); i++) {
+        if (i == 2 || i == 5) {
+            continue;
+        }
+
+        if (text[i] < '0' || text[i] > '9') {
+            return std::nullopt;
+        }
+    }
+
+    int day = (text[0] - '0') * 10 + (text[1] - '0');
+    int month = (text[3] - '0') * 10 + (text[4] - '0');
+    int year = 0;
+
+    for (size_t i = 6; i < text.size(); i++) {
+        year = year * 10 + (text[i] - '0');
+    }
+
+    return std::chrono::year_month_day{
+        std::chrono::year{year},
+        std::chrono::month{static_cast<unsigned>(month)},
+        std::chrono::day{static_cast<unsigned>(day)}
+    };
 }
 
 void UI::add_task_dialogue() {
-    std::cout << "Ingrese el titulo de la tarea: ";
-    std::string title = read_line_limited(TareaLimits::MAX_TITLE_LEN);
+    std::print("Ingrese el titulo de la tarea: ");
+    auto title = read_until(Tarea::MAX_TITLE);
 
-    if (title.empty()) {
-        std::cerr << "El título de la tarea no puede estar vacío.";
+    if (!title.has_value()) {
+        show_error(TareaErr::NullTitle);
         return;
     }
 
-    std::cout << "Ingrese una descripcion (opcional): ";
-    std::string description = read_line_limited(TareaLimits::MAX_DESC_LEN);
+    std::print("Ingrese una descripcion (opcional): ");
+    auto description = read_until(Tarea::MAX_DESC);
 
-    std::cout << "Ingrese una fecha (opcional): ";
-    std::string date = read_line_limited(TareaLimits::DATE_LEN);
+    std::print("Ingrese una fecha (opcional): ");
+    auto date_text = read_until(Tarea::MAX_DATE);
 
-    std::optional<std::string> desc_opt;
-    std::optional<std::string> date_opt;
+    std::optional<std::chrono::year_month_day> date;
 
-    if (!description.empty()) {
-        desc_opt = description;
+    if (date_text.has_value()) {
+        date = parse_date(*date_text);
+
+        if (!date.has_value()) {
+            show_error(TareaErr::InvalidDate);
+            return;
+        }
     }
 
-    if (!date.empty()) {
-        date_opt = date;
-    }
-
-    Tarea nueva_tarea(
-        title,
-        desc_opt,
-        date_opt,
-        false
-    );
+    Tarea nueva_tarea(title.value(), description, date, false);
 
     TareaErr error = list.add(nueva_tarea);
 
-    if (error == TareaErr::None) {
-        std::cout << "Tarea agregada exitosamente." << std::endl;
+    if (error == TareaErr::Ok) {
+        std::println("Tarea agregada exitosamente.");
     } else {
         show_error(error);
     }
@@ -79,19 +97,19 @@ void UI::add_task_dialogue() {
 void UI::remove_task_dialogue() {
     size_t index;
 
-    std::cout << "Ingrese el numero de la tarea a eliminar: ";
+    std::print("Ingrese el numero de la tarea a eliminar: ");
 
-     while (!(std::cin >> index)) {
+    while (!(std::cin >> index)) {
         std::cin.clear();
         std::cin.ignore(10000, '\n');
-        std::cout << "Entrada invalida, ingrese un numero: ";
+        std::print("Entrada invalida, ingrese un numero: ");
     }
     std::cin.ignore();
 
     TareaErr error = list.remove(index);
 
-    if (error == TareaErr::None) {
-        std::cout << "Tarea eliminada exitosamente." << std::endl;
+    if (error == TareaErr::Ok) {
+        std::println("Tarea eliminada exitosamente.");
     } else {
         show_error(error);
     }
@@ -100,54 +118,54 @@ void UI::remove_task_dialogue() {
 void UI::update_task_dialogue() {
     size_t index;
 
-    std::cout << "Ingrese el numero de la tarea a actualizar: ";
+    std::print("Ingrese el numero de la tarea a actualizar: ");
 
-     while (!(std::cin >> index)) {
+    while (!(std::cin >> index)) {
         std::cin.clear();
         std::cin.ignore(10000, '\n');
-        std::cout << "Entrada invalida, ingrese un numero: ";
+        std::print("Entrada invalida, ingrese un numero: ");
     }
     std::cin.ignore();
 
-    std::cout << "Ingrese el nuevo titulo: ";
-    std::string title = read_line_limited(TareaLimits::MAX_TITLE_LEN);
+    std::print("Ingrese el nuevo titulo: ");
+    auto title = read_until(Tarea::MAX_TITLE);
 
-    if(title.empty()){
-        std::cerr << "El título no puede estar vacío." << std::endl;
+    if (!title.has_value()) {
+        show_error(TareaErr::NullTitle);
         return;
     }
 
-    std::cout << "Ingrese la nueva descripcion (opcional): ";
-    std::string description = read_line_limited(TareaLimits::MAX_DESC_LEN);
+    std::print("Ingrese la nueva descripcion (opcional): ");
+    auto description = read_until(Tarea::MAX_DESC);
 
-    std::cout << "Ingrese la nueva fecha (opcional): ";
-    std::string date = read_line_limited(TareaLimits::DATE_LEN);
+    std::print("Ingrese la nueva fecha (opcional): ");
+    auto date_text = read_until(Tarea::MAX_DATE);
 
-    std::optional<std::string> desc_opt;
-    std::optional<std::string> date_opt;
+    std::optional<std::chrono::year_month_day> date;
 
-    if (!description.empty()) {
-        desc_opt = description;
+    if (date_text.has_value()) {
+        date = parse_date(*date_text);
+
+        if (!date.has_value()) {
+            show_error(TareaErr::InvalidDate);
+            return;
+        }
     }
-
-    if (!date.empty()) {
-        date_opt = date;
-    }
-
-    Tarea nueva_tarea(title, desc_opt, date_opt, false);
+    
+    Tarea nueva_tarea(title.value(), description, date, false);
 
     TareaErr error = list.add(nueva_tarea);
 
-    if (error != TareaErr::None) {
+    if (error != TareaErr::Ok) {
         show_error(error);
         return;
     }
 
     error = list.remove(index);
 
-    if(error == TareaErr::None) {
-        std::cout << "Tarea actualizada exitosamente." << std::endl;
-    } else{
+    if (error == TareaErr::Ok) {
+        std::println("Tarea actualizada exitosamente.");
+    } else {
         show_error(error);
     }
 }
@@ -155,9 +173,9 @@ void UI::update_task_dialogue() {
 void UI::complete_task_dialogue() {
     size_t index;
 
-    std::cout << "Ingrese el numero de la tarea a marcar como completada: ";
+    std::print("Ingrese el numero de la tarea a marcar como completada: ");
 
-     while (!(std::cin >> index)) {
+    while (!(std::cin >> index)) {
         std::cin.clear();
         std::cin.ignore(10000, '\n');
         std::cout << "Entrada invalida, ingrese un numero: ";
@@ -177,93 +195,106 @@ void UI::complete_task_dialogue() {
     std::expected<Tarea, TareaErr> resultado = list.edit(index, actualizada);
 
     if (resultado.has_value()) {
-        std::cout << "Tarea marcada como completada." << std::endl;
+        std::println("Tarea marcada como completada.");
     } else {
         show_error(resultado.error());
     }
 }
 
 void UI::clear_screen() {
-    std::cout << "\033[2J\033[1;1H";
+    std::print("\033[2J\033[1;1H");
 }
 
 void UI::show_error(TareaErr e) {
     switch (e) {
-        case TareaErr::OverSizeTitle:
-            std::cerr << "Error: El titulo es demasiado largo." << std::endl;
-            break;
+    case TareaErr::InvalidOption:
+        std::println(stderr, "Error: Opcion Invalida");
+    case TareaErr::NullTitle:
+        std::println(stderr, "Error: El titulo no puede estar vacio.");
+        break;
+    case TareaErr::OverSizeTitle:
+        std::println(stderr, "Error: El titulo es demasiado largo.");
+        break;
 
-        case TareaErr::OverSizeDesc:
-            std::cerr << "Error: La descripcion es demasiado larga." << std::endl;
-            break;
+    case TareaErr::OverSizeDesc:
+        std::println(stderr, "Error: La descripcion es demasiado larga.");
+        break;
 
-        case TareaErr::InvalidDate:
-            std::cerr << "Error: La fecha ingresada no es valida." << std::endl;
-            break;
+    case TareaErr::InvalidDate:
+        std::println(stderr, "Error: La fecha ingresada no es valida.");
+        break;
 
-        case TareaErr::IndexErr:
-            std::cerr << "Error: El indice de la tarea no existe." << std::endl;
-            break;
+    case TareaErr::IndexErr:
+        std::println(stderr, "Error: El indice de la tarea no existe.");
+        break;
 
-        case TareaErr::EmptyList:
-            std::cerr << "Error: La lista esta vacia." << std::endl;
-            break;
+    case TareaErr::EmptyList:
+        std::println(stderr, "Error: La lista esta vacia.");
+        break;
 
-        case TareaErr::None:
-            break;
+    case TareaErr::NotOverdue:
+        std::println(stderr, "Error: la tarea aun no esta vencida.");
+        break;
+
+    case TareaErr::AlreadyCompleted:
+        std::println(stderr, "Error: no se puede agregar una tarea ya completada.");
+        break;
+
+    case TareaErr::Ok:
+        break;
     }
 }
 
-  void UI::print_list() {
-      list.print();
-  }
+void UI::print_list() {
+    list.print();
+}
 
 void UI::read_option() {
     int option;
 
-    std::cout << "Seleccione una opción:\n";
-    std::cout << "1. Agregar tarea\n";
-    std::cout << "2. Eliminar tarea\n";
-    std::cout << "3. Actualizar tarea\n";
-    std::cout << "4. Mostrar tareas\n";
-    std::cout << "5. Marcar tarea como completada\n";
-    std::cout << "6. Salir\n";
+    std::println("Seleccione una opción:");
+    std::println("1. Agregar tarea");
+    std::println("2. Eliminar tarea\n");
+    std::println("3. Actualizar tarea");
+    std::println("4. Mostrar tareas\n");
+    std::println("5. Marcar tarea como completada");
+    std::println("6. Salir");
 
     while (!(std::cin >> option)) {
         std::cin.clear();
         std::cin.ignore(10000, '\n');
-        std::cout << "Entrada invalida, ingrese un numero: ";
+        std::print("Entrada invalida, ingrese un numero: ");
     }
     std::cin.ignore();
-    
+
     switch (option) {
-        case 1:
-            add_task_dialogue();
-            break;
+    case 1:
+        add_task_dialogue();
+        break;
 
-        case 2:
-            remove_task_dialogue();
-            break;
+    case 2:
+        remove_task_dialogue();
+        break;
 
-        case 3:
-            update_task_dialogue();
-            break;
+    case 3:
+        update_task_dialogue();
+        break;
 
-        case 4:
-            print_list();
-            break;
+    case 4:
+        print_list();
+        break;
 
-        case 5:
-            complete_task_dialogue();
-            break;
+    case 5:
+        complete_task_dialogue();
+        break;
 
-        case 6:
-            is_on = false;
-            break;
+    case 6:
+        is_on = false;
+        break;
 
-        default:
-            std::cerr << "Opción inválida." << std::endl;
-            break;
+    default:
+        show_error(TareaErr::InvalidOption);
+        break;
     }
 }
 
@@ -271,8 +302,6 @@ bool UI::is_running() {
     return is_on;
 }
 
-UI::UI() : is_on(true) {
-}
+UI::UI() : is_on(true) {}
 
-UI::~UI() {
-}
+UI::~UI() {}

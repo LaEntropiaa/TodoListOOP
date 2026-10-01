@@ -1,60 +1,63 @@
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <expected>
 #include <optional>
 #include <string>
 #include <vector>
 
-namespace TareaLimits {
-    inline constexpr size_t MAX_TITLE_LEN = 100;
-    inline constexpr size_t MAX_DESC_LEN = 500;
-    inline constexpr size_t DATE_LEN = 10; // DD/MM/YYYY
-}
-
 class Tarea {
   private:
     std::string title;
     std::optional<std::string> description;
-    std::optional<std::string> date;
+    std::optional<std::chrono::year_month_day> date;
     bool is_completed;
 
   public:
+    static constexpr std::size_t MAX_TITLE = 100;
+    static constexpr std::size_t MAX_DESC = 600;
+    static constexpr std::size_t MAX_DATE = 10;
+
     Tarea(std::string title,
           std::optional<std::string> description,
-          std::optional<std::string> date,
+          std::optional<std::chrono::year_month_day> date,
           bool is_completed)
         : title(std::move(title)), description(std::move(description)),
           date(std::move(date)), is_completed(is_completed) {};
 
-    std::string get_title() const{
-      return title;
+    std::string get_title() const {
+        return title;
     }
 
     std::optional<std::string> get_description() const {
-      return description;
+        return description;
     }
 
-    std::optional<std::string> get_date() const {
-      return date;
+    std::optional<std::chrono::year_month_day> get_date() const {
+        return date;
     }
 
     bool get_is_completed() const {
-      return is_completed;
+        return is_completed;
     }
 
     void set_completed(bool value) {
-      is_completed = value;
+        is_completed = value;
     }
 };
 
 enum class TareaErr {
-    None,
+    Ok,
+    NullTitle,
     OverSizeTitle,
     OverSizeDesc,
     InvalidDate,
     IndexErr,
     EmptyList,
-
+    InvalidOption,
+    NotOverdue,
+    AlreadyCompleted,
     // TODO - functions to pass info for errors, specially for the UI
 };
 
@@ -62,7 +65,8 @@ class ListaTarea {
   protected:
     std::vector<Tarea> tareas;
 
-    static TareaErr validate(const Tarea& tarea);
+    static TareaErr validate(const Tarea &tarea);
+    static std::string format_date(const std::chrono::year_month_day& date);
 
   public:
     std::expected<Tarea, TareaErr> get_by_index(size_t index);
@@ -94,6 +98,9 @@ class TodoLista : public ListaTarea {
 };
 
 class DueLista : public ListaTarea {
+  private:
+    static std::chrono::year_month_day today();
+    
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;

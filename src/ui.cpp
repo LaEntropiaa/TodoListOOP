@@ -27,6 +27,36 @@ std::optional<std::string> UI::read_until(std::size_t limit) {
     return result;
 }
 
+std::optional<std::chrono::year_month_day> UI::parse_date(const std::string& text) {
+    if (text.size() != Tarea::MAX_DATE || text[2] != '/' || text[5] != '/') {
+        return std::nullopt;
+    }
+
+    for (size_t i = 0; i < text.size(); i++) {
+        if (i == 2 || i == 5) {
+            continue;
+        }
+
+        if (text[i] < '0' || text[i] > '9') {
+            return std::nullopt;
+        }
+    }
+
+    int day = (text[0] - '0') * 10 + (text[1] - '0');
+    int month = (text[3] - '0') * 10 + (text[4] - '0');
+    int year = 0;
+
+    for (size_t i = 6; i < text.size(); i++) {
+        year = year * 10 + (text[i] - '0');
+    }
+
+    return std::chrono::year_month_day{
+        std::chrono::year{year},
+        std::chrono::month{static_cast<unsigned>(month)},
+        std::chrono::day{static_cast<unsigned>(day)}
+    };
+}
+
 void UI::add_task_dialogue() {
     std::print("Ingrese el titulo de la tarea: ");
     auto title = read_until(Tarea::MAX_TITLE);
@@ -40,7 +70,18 @@ void UI::add_task_dialogue() {
     auto description = read_until(Tarea::MAX_DESC);
 
     std::print("Ingrese una fecha (opcional): ");
-    auto date = read_until(Tarea::MAX_DATE);
+    auto date_text = read_until(Tarea::MAX_DATE);
+
+    std::optional<std::chrono::year_month_day> date;
+
+    if (date_text.has_value()) {
+        date = parse_date(*date_text);
+
+        if (!date.has_value()) {
+            show_error(TareaErr::InvalidDate);
+            return;
+        }
+    }
 
     Tarea nueva_tarea(title.value(), description, date, false);
 
@@ -98,9 +139,20 @@ void UI::update_task_dialogue() {
     auto description = read_until(Tarea::MAX_DESC);
 
     std::print("Ingrese la nueva fecha (opcional): ");
-    auto date = read_until(Tarea::MAX_DATE);
+    auto date_text = read_until(Tarea::MAX_DATE);
 
-    Tarea nueva_tarea(title, description, date, false);
+    std::optional<std::chrono::year_month_day> date;
+
+    if (date_text.has_value()) {
+        date = parse_date(*date_text);
+
+        if (!date.has_value()) {
+            show_error(TareaErr::InvalidDate);
+            return;
+        }
+    }
+    
+    Tarea nueva_tarea(title.value(), description, date, false);
 
     TareaErr error = list.add(nueva_tarea);
 

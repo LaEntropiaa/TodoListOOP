@@ -180,6 +180,14 @@ void UI::show_error(TareaErr e) {
         std::println(stderr, "Error: La lista esta vacia.");
         break;
 
+    case TareaErr::NotOverdue:
+        std::println(stderr, "Error: la tarea aun no esta vencida.");
+        break;
+
+    case TareaErr::AlreadyCompleted:
+        std::println(stderr, "Error: no se puede agregar una tarea ya completada.");
+        break;
+
     case TareaErr::Ok:
         break;
     }

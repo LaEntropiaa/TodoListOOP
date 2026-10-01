@@ -51,6 +51,24 @@ size_t ListaTarea::len() {
     return tareas.size();
 }
 
+std::string ListaTarea::format_date(const std::chrono::year_month_day& date) {
+    unsigned day = static_cast<unsigned>(date.day());
+    unsigned month = static_cast<unsigned>(date.month());
+    int year = static_cast<int>(date.year());
+
+    std::string result;
+
+    if (day < 10) result += '0';
+    result += std::to_string(day) + "/";
+
+    if (month < 10) result += '0';
+    result += std::to_string(month) + "/";
+
+    result += std::to_string(year);
+
+    return result;
+}
+
 void ListaTarea::print() {
     if (tareas.empty()) {
         std::cout << "No hay tareas." << std::endl;

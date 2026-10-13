@@ -146,3 +146,60 @@ std::expected<Tarea, TareaErr> DueLista::get() {
 
     return tareas.front();
 }
+
+// TodoLista
+
+TareaErr TodoLista::add(Tarea tarea) {
+    if (!tarea.get_date().has_value()) {
+        return TareaErr::InvalidDate;
+    }
+
+    TareaErr error = validate(tarea);
+
+    if (error != TareaErr::Ok) {
+        return error;
+    }
+
+    if (tarea.get_is_completed()) {
+        return TareaErr::AlreadyCompleted;
+    }
+
+    std::chrono::year_month_day fecha = *tarea.get_date();
+
+    if (fecha < today()) {
+        return TareaErr::Overdue;
+    }
+
+    size_t pos = 0;
+
+    // On some R&C shit
+    while (pos < tareas.size() && *tareas[pos].get_date() <= fecha) {
+        pos++;
+    }
+
+    tareas.insert(tareas.begin() + pos, std::move(tarea));
+
+    return TareaErr::Ok;
+}
+
+TareaErr TodoLista::remove(size_t index) {
+    if (tareas.empty()) {
+        return TareaErr::EmptyList;
+    }
+
+    if (index >= tareas.size()) {
+        return TareaErr::IndexErr;
+    }
+
+    tareas.erase(tareas.begin() + index);
+
+    return TareaErr::Ok;
+}
+
+std::expected<Tarea, TareaErr> TodoLista::get() {
+    if (tareas.empty()) {
+        return std::unexpected(TareaErr::EmptyList);
+    }
+
+    return tareas.front();
+}

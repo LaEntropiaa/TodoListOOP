@@ -61,6 +61,7 @@ enum class TareaErr {
     NotOverdue,
     Overdue,
     AlreadyCompleted,
+    NotCompleted,
     // TODO - functions to pass info for errors, specially for the UI
 };
 

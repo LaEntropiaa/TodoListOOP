@@ -61,6 +61,7 @@ enum class TareaErr {
     NotOverdue,
     Overdue,
     AlreadyCompleted,
+    NotCompleted,
     // TODO - functions to pass info for errors, specially for the UI
 };
 
@@ -71,6 +72,15 @@ class ListaTarea {
     static TareaErr validate(const Tarea &tarea);
 
   public:
+    using const_iterator = std::vector<Tarea>::const_iterator;
+
+    [[nodiscard]] const_iterator get() const {
+        return tareas.cbegin();
+    }
+
+    [[nodiscard]] const_iterator end() const {
+        return tareas.cend();
+    }
     std::expected<Tarea, TareaErr> get_by_index(size_t index);
     std::expected<Tarea, TareaErr> edit(size_t index, Tarea nueva);
     size_t len();
@@ -80,33 +90,28 @@ class ListaTarea {
 
     virtual TareaErr remove(size_t index) = 0;
     virtual TareaErr add(Tarea) = 0;
-    virtual std::expected<Tarea, TareaErr> get() = 0;
 };
 
 class InboxLista : public ListaTarea {
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;
-    std::expected<Tarea, TareaErr> get() override;
 };
 
 class TodoLista : public ListaTarea {
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;
-    std::expected<Tarea, TareaErr> get() override;
 };
 
 class DueLista : public ListaTarea {
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;
-    std::expected<Tarea, TareaErr> get() override;
 };
 
 class CompleteLista : public ListaTarea {
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;
-    std::expected<Tarea, TareaErr> get() override;
 };

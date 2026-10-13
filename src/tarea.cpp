@@ -83,14 +83,6 @@ TareaErr InboxLista::remove(size_t index) {
     return TareaErr::Ok;
 }
 
-std::expected<Tarea, TareaErr> InboxLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
-    }
-
-    return tareas.front();
-}
-
 // DUELISTA
 
 TareaErr DueLista::add(Tarea tarea) {
@@ -137,14 +129,6 @@ TareaErr DueLista::remove(size_t index) {
     tareas.erase(tareas.begin() + index);
 
     return TareaErr::Ok;
-}
-
-std::expected<Tarea, TareaErr> DueLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
-    }
-
-    return tareas.front();
 }
 
 // TodoLista
@@ -196,10 +180,55 @@ TareaErr TodoLista::remove(size_t index) {
     return TareaErr::Ok;
 }
 
-std::expected<Tarea, TareaErr> TodoLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
+// CompleteLista
+
+TareaErr CompleteLista::add(Tarea tarea) {
+    TareaErr error = validate(tarea);
+
+    if (error != TareaErr::Ok) {
+        return error;
     }
 
-    return tareas.front();
+    if (!tarea.get_is_completed()) {
+        return TareaErr::NotCompleted;
+    }
+
+    size_t pos = 0;
+
+    if (tarea.get_date().has_value()) {
+        const auto fecha = *tarea.get_date();
+
+        while (pos < tareas.size()) {
+            const auto &fecha_actual = tareas[pos].get_date();
+
+            if (!fecha_actual.has_value() || *fecha_actual > fecha) {
+                break;
+            }
+
+            pos++;
+        }
+    } else {
+        // No date, get to end
+        while (pos < tareas.size() && tareas[pos].get_date().has_value()) {
+            pos++;
+        }
+    }
+
+    tareas.insert(tareas.begin() + pos, std::move(tarea));
+
+    return TareaErr::Ok;
+}
+
+TareaErr CompleteLista::remove(size_t index) {
+    if (tareas.empty()) {
+        return TareaErr::EmptyList;
+    }
+
+    if (index >= tareas.size()) {
+        return TareaErr::IndexErr;
+    }
+
+    tareas.erase(tareas.begin() + index);
+
+    return TareaErr::Ok;
 }

@@ -83,14 +83,6 @@ TareaErr InboxLista::remove(size_t index) {
     return TareaErr::Ok;
 }
 
-std::expected<Tarea, TareaErr> InboxLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
-    }
-
-    return tareas.front();
-}
-
 // DUELISTA
 
 TareaErr DueLista::add(Tarea tarea) {
@@ -137,14 +129,6 @@ TareaErr DueLista::remove(size_t index) {
     tareas.erase(tareas.begin() + index);
 
     return TareaErr::Ok;
-}
-
-std::expected<Tarea, TareaErr> DueLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
-    }
-
-    return tareas.front();
 }
 
 // TodoLista
@@ -194,14 +178,6 @@ TareaErr TodoLista::remove(size_t index) {
     tareas.erase(tareas.begin() + index);
 
     return TareaErr::Ok;
-}
-
-std::expected<Tarea, TareaErr> TodoLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
-    }
-
-    return tareas.front();
 }
 
 // CompleteLista
@@ -255,12 +231,4 @@ TareaErr CompleteLista::remove(size_t index) {
     tareas.erase(tareas.begin() + index);
 
     return TareaErr::Ok;
-}
-
-std::expected<Tarea, TareaErr> CompleteLista::get() {
-    if (tareas.empty()) {
-        return std::unexpected(TareaErr::EmptyList);
-    }
-
-    return tareas.front();
 }

@@ -9,6 +9,51 @@
 #include <string>
 
 // Inicio Luis el 08/09/2026
+//
+std::string UI::format_date(const std::chrono::year_month_day &date) {
+    unsigned day = static_cast<unsigned>(date.day());
+    unsigned month = static_cast<unsigned>(date.month());
+    int year = static_cast<int>(date.year());
+
+    std::string result;
+
+    if (day < 10)
+        result += '0';
+    result += std::to_string(day) + "/";
+
+    if (month < 10)
+        result += '0';
+    result += std::to_string(month) + "/";
+
+    result += std::to_string(year);
+
+    return result;
+}
+
+void UI::print(ListaTarea &lista) {
+    if (lista.len() < 1) {
+        std::cout << "No hay tareas." << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < lista.len(); i++) {
+        std::cout << i << ". " << lista.get_by_index(i).value().get_title();
+
+        if (lista.get_by_index(i).value().get_date().has_value()) {
+            std::cout << " ("
+                      << format_date(*lista.get_by_index(i).value().get_date())
+                      << ")";
+        }
+
+        if (lista.get_by_index(i).value().get_is_completed()) {
+            std::cout << " [Completada]";
+        } else {
+            std::cout << " [Pendiente]";
+        }
+
+        std::cout << std::endl;
+    }
+}
 
 std::optional<std::string> UI::read_until(std::size_t limit) {
     std::string result;
@@ -27,7 +72,8 @@ std::optional<std::string> UI::read_until(std::size_t limit) {
     return result;
 }
 
-std::optional<std::chrono::year_month_day> UI::parse_date(const std::string& text) {
+std::optional<std::chrono::year_month_day>
+UI::parse_date(const std::string &text) {
     if (text.size() != Tarea::MAX_DATE || text[2] != '/' || text[5] != '/') {
         return std::nullopt;
     }
@@ -53,8 +99,7 @@ std::optional<std::chrono::year_month_day> UI::parse_date(const std::string& tex
     return std::chrono::year_month_day{
         std::chrono::year{year},
         std::chrono::month{static_cast<unsigned>(month)},
-        std::chrono::day{static_cast<unsigned>(day)}
-    };
+        std::chrono::day{static_cast<unsigned>(day)}};
 }
 
 void UI::add_task_dialogue() {
@@ -151,7 +196,7 @@ void UI::update_task_dialogue() {
             return;
         }
     }
-    
+
     Tarea nueva_tarea(title.value(), description, date, false);
 
     TareaErr error = list.add(nueva_tarea);
@@ -237,7 +282,8 @@ void UI::show_error(TareaErr e) {
         break;
 
     case TareaErr::AlreadyCompleted:
-        std::println(stderr, "Error: no se puede agregar una tarea ya completada.");
+        std::println(stderr,
+                     "Error: no se puede agregar una tarea ya completada.");
         break;
 
     case TareaErr::Ok:
@@ -246,7 +292,7 @@ void UI::show_error(TareaErr e) {
 }
 
 void UI::print_list() {
-    list.print();
+    UI::print(this->list);
 }
 
 void UI::read_option() {
@@ -254,9 +300,9 @@ void UI::read_option() {
 
     std::println("Seleccione una opción:");
     std::println("1. Agregar tarea");
-    std::println("2. Eliminar tarea\n");
+    std::println("2. Eliminar tarea");
     std::println("3. Actualizar tarea");
-    std::println("4. Mostrar tareas\n");
+    std::println("4. Mostrar tareas");
     std::println("5. Marcar tarea como completada");
     std::println("6. Salir");
 
@@ -281,7 +327,7 @@ void UI::read_option() {
         break;
 
     case 4:
-        print_list();
+        UI::print(this->list);
         break;
 
     case 5:

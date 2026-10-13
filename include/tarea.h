@@ -14,6 +14,8 @@ class Tarea {
     std::optional<std::chrono::year_month_day> date;
     bool is_completed;
 
+    static std::chrono::year_month_day today();
+
   public:
     static constexpr std::size_t MAX_TITLE = 100;
     static constexpr std::size_t MAX_DESC = 600;
@@ -66,14 +68,12 @@ class ListaTarea {
     std::vector<Tarea> tareas;
 
     static TareaErr validate(const Tarea &tarea);
-    static std::string format_date(const std::chrono::year_month_day& date);
+    static std::string format_date(const std::chrono::year_month_day &date);
 
   public:
     std::expected<Tarea, TareaErr> get_by_index(size_t index);
     std::expected<Tarea, TareaErr> edit(size_t index, Tarea nueva);
     size_t len();
-
-    virtual void print();
 
     ListaTarea() = default;
     virtual ~ListaTarea() = default;
@@ -98,9 +98,6 @@ class TodoLista : public ListaTarea {
 };
 
 class DueLista : public ListaTarea {
-  private:
-    static std::chrono::year_month_day today();
-    
   public:
     TareaErr remove(size_t index) override;
     TareaErr add(Tarea) override;

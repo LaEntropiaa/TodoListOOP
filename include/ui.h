@@ -12,7 +12,10 @@ class UI {
     // More lists for the future
     // Database interaction necessary
     static std::optional<std::string> read_until(std::size_t limit);
-    static std::optional<std::chrono::year_month_day> parse_date(const std::string& text);
+    static std::optional<std::chrono::year_month_day>
+    parse_date(const std::string &text);
+    static void print(ListaTarea &lista);
+    static std::string format_date(const std::chrono::year_month_day &date);
 
     void show_error(TareaErr e);
     void add_task_dialogue();

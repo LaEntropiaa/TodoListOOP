@@ -2,7 +2,11 @@
 
 #include <ctime>
 #include <expected>
-#include <iostream>
+
+std::chrono::year_month_day today() {
+    return std::chrono::year_month_day{std::chrono::floor<std::chrono::days>(
+        std::chrono::system_clock::now())};
+}
 
 TareaErr ListaTarea::validate(const Tarea &tarea) {
     if (tarea.get_title().size() > Tarea::MAX_TITLE) {
@@ -51,47 +55,6 @@ size_t ListaTarea::len() {
     return tareas.size();
 }
 
-std::string ListaTarea::format_date(const std::chrono::year_month_day& date) {
-    unsigned day = static_cast<unsigned>(date.day());
-    unsigned month = static_cast<unsigned>(date.month());
-    int year = static_cast<int>(date.year());
-
-    std::string result;
-
-    if (day < 10) result += '0';
-    result += std::to_string(day) + "/";
-
-    if (month < 10) result += '0';
-    result += std::to_string(month) + "/";
-
-    result += std::to_string(year);
-
-    return result;
-}
-
-void ListaTarea::print() {
-    if (tareas.empty()) {
-        std::cout << "No hay tareas." << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < tareas.size(); i++) {
-        std::cout << i << ". " << tareas[i].get_title();
-
-        if (tareas[i].get_date().has_value()) {
-        std::cout << " (" << format_date(*tareas[i].get_date()) << ")";
-    }
-
-        if (tareas[i].get_is_completed()) {
-            std::cout << " [Completada]";
-        } else {
-            std::cout << " [Pendiente]";
-        }
-
-        std::cout << std::endl;
-    }
-}
-
 // INBOXLISTA
 
 TareaErr InboxLista::add(Tarea tarea) {
@@ -130,17 +93,11 @@ std::expected<Tarea, TareaErr> InboxLista::get() {
 
 // DUELISTA
 
-std::chrono::year_month_day DueLista::today() {
-    return std::chrono::year_month_day{
-        std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())
-    };
-}
-
 TareaErr DueLista::add(Tarea tarea) {
     if (!tarea.get_date().has_value()) {
         return TareaErr::InvalidDate;
     }
-    
+
     TareaErr error = validate(tarea);
 
     if (error != TareaErr::Ok) {

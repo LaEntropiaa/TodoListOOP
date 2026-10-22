@@ -425,3 +425,32 @@ ListaTarea& UI::lista_actual () {
 
 
 }
+
+TareaErr UI::agregar_tarea(Tarea tarea) {
+    std::chrono::year_month_day hoy{
+        std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
+
+    TareaErr error;
+    int destino;
+
+    if (tarea.get_is_completed()) {
+        error = completed.add(tarea);
+        destino = 3;
+    } else if (!tarea.get_date().has_value()) {
+        error = list.add(tarea);
+        destino = 0;
+    } else if (*tarea.get_date() < hoy) {
+        error = due.add(tarea);
+        destino = 2;
+    } else {
+        error = todo.add(tarea);
+        destino = 1;
+    }
+
+    // Brincar a la pestaña donde quedo la tarea para que se vea
+    if (error == TareaErr::Ok) {
+        pestana_actual = destino;
+    }
+
+    return error;
+}

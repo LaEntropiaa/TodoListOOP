@@ -21,6 +21,9 @@ class UI {
     int pestana_actual = 0;
     std::vector<std::string> pestanas = {"Inbox",  "Todo", "Due", "Completed" }; //variable de la lista que se mostrara despues en la salida
     ListaTarea& lista_actual (void);
+
+    // Decide en que lista cae la tarea y la agrega ahi
+    TareaErr agregar_tarea(Tarea tarea);
   
   
   

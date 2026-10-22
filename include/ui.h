@@ -22,6 +22,13 @@ class UI {
     std::vector<std::string> pestanas = {"Inbox",  "Todo", "Due", "Completed" }; //variable de la lista que se mostrara despues en la salida
     ListaTarea& lista_actual (void);
 
+    // Estado del dialogo para agregar tareas
+    bool mostrar_dialogo = false;
+    std::string nuevo_titulo;
+    std::string nueva_descripcion;
+    std::string nueva_fecha;
+    std::string mensaje_error;
+
     // Decide en que lista cae la tarea y la agrega ahi
     TareaErr agregar_tarea(Tarea tarea);
   

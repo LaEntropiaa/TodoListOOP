@@ -393,14 +393,104 @@ void UI::run() {
         }) | ftxui::border;
     });
 
-    auto app = ftxui::CatchEvent(view, [&](ftxui::Event event){
-    
+    // ---- Dialogo para agregar tarea ----
+
+    auto cerrar_dialogo = [&] {
+        mostrar_dialogo = false;
+    };
+
+    auto guardar = [&] {
+        if (nuevo_titulo.empty()) {
+            mensaje_error = "El titulo no puede estar vacio.";
+            return;
+        }
+
+        std::optional<std::chrono::year_month_day> fecha;
+        if (!nueva_fecha.empty()) {
+            fecha = parse_date(nueva_fecha);
+            if (!fecha.has_value()) {
+                mensaje_error = "Fecha invalida, usa dd/mm/aaaa.";
+                return;
+            }
+        }
+
+        std::optional<std::string> descripcion;
+        if (!nueva_descripcion.empty()) {
+            descripcion = nueva_descripcion;
+        }
+
+        TareaErr error = agregar_tarea(Tarea(nuevo_titulo, descripcion, fecha, false));
+
+        if (error != TareaErr::Ok) {
+            mensaje_error = "No se pudo agregar: revisa titulo, descripcion o fecha.";
+            return;
+        }
+
+        mostrar_dialogo = false;
+    };
+
+    // Enter en cualquier caja guarda la tarea
+    ftxui::InputOption opcion;
+    opcion.multiline = false;
+    opcion.on_enter = guardar;
+
+    auto input_titulo = ftxui::Input(&nuevo_titulo, "obligatorio", opcion);
+    auto input_descripcion = ftxui::Input(&nueva_descripcion, "opcional", opcion);
+    auto input_fecha = ftxui::Input(&nueva_fecha, "dd/mm/aaaa (opcional)", opcion);
+
+    auto botones = ftxui::Container::Horizontal({
+        ftxui::Button("Guardar", guardar),
+        ftxui::Button("Cancelar", cerrar_dialogo),
+    });
+
+    // Las flechas arriba/abajo se mueven entre estas piezas
+    auto campos = ftxui::Container::Vertical({
+        input_titulo,
+        input_descripcion,
+        input_fecha,
+        botones,
+    });
+
+    auto dialogo = ftxui::Renderer(campos, [&] {
+        return ftxui::vbox({
+            ftxui::text("Nueva tarea") | ftxui::bold | ftxui::center,
+            ftxui::separator(),
+            ftxui::hbox({ftxui::text("Titulo:      "), input_titulo->Render()}),
+            ftxui::hbox({ftxui::text("Descripcion: "), input_descripcion->Render()}),
+            ftxui::hbox({ftxui::text("Fecha:       "), input_fecha->Render()}),
+            ftxui::text(mensaje_error) | ftxui::color(ftxui::Color::Red),
+            botones->Render() | ftxui::center,
+        }) | ftxui::border | ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 50);
+    });
+
+    // Modal: dibuja el dialogo encima de la vista cuando mostrar_dialogo es true
+    auto con_dialogo = ftxui::Modal(view, dialogo, &mostrar_dialogo);
+
+    auto app = ftxui::CatchEvent(con_dialogo, [&](ftxui::Event event){
+
+        // Con el dialogo abierto, las teclas son para escribir (menos Esc)
+        if (mostrar_dialogo) {
+            if (event == ftxui::Event::Escape) {
+                cerrar_dialogo();
+                return true;
+            }
+            return false;
+        }
+
         if (event == ftxui::Event::Character('q') ){
-            
             screen.Exit();
             return true;
         }
-    
+
+        if (event == ftxui::Event::Character('a')) {
+            nuevo_titulo.clear();
+            nueva_descripcion.clear();
+            nueva_fecha.clear();
+            mensaje_error.clear();
+            mostrar_dialogo = true;
+            input_titulo->TakeFocus();
+            return true;
+        }
 
     return false;});
 

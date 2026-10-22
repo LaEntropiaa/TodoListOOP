@@ -1,11 +1,8 @@
 #include "ui.h"
 #include "tarea.h"
 
-#include <cstdio>
-#include <expected>
-#include <iostream>
+#include <chrono>
 #include <optional>
-#include <print>
 #include <string>
 
 // Inicio Luis el 08/09/2026
@@ -26,48 +23,6 @@ std::string UI::format_date(const std::chrono::year_month_day &date) {
     result += std::to_string(month) + "/";
 
     result += std::to_string(year);
-
-    return result;
-}
-
-void UI::print(ListaTarea &lista) {
-    if (lista.len() < 1) {
-        std::cout << "No hay tareas." << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < lista.len(); i++) {
-        std::cout << i << ". " << lista.get_by_index(i).value().get_title();
-
-        if (lista.get_by_index(i).value().get_date().has_value()) {
-            std::cout << " ("
-                      << format_date(*lista.get_by_index(i).value().get_date())
-                      << ")";
-        }
-
-        if (lista.get_by_index(i).value().get_is_completed()) {
-            std::cout << " [Completada]";
-        } else {
-            std::cout << " [Pendiente]";
-        }
-
-        std::cout << std::endl;
-    }
-}
-
-std::optional<std::string> UI::read_until(std::size_t limit) {
-    std::string result;
-    result.reserve(limit);
-
-    std::getline(std::cin, result);
-
-    if (result.size() < 1) {
-        return std::nullopt;
-    }
-
-    if (result.size() > limit) {
-        result.resize(limit);
-    }
 
     return result;
 }
@@ -102,252 +57,187 @@ UI::parse_date(const std::string &text) {
         std::chrono::day{static_cast<unsigned>(day)}};
 }
 
-void UI::add_task_dialogue() {
-    std::print("Ingrese el titulo de la tarea: ");
-    auto title = read_until(Tarea::MAX_TITLE);
-
-    if (!title.has_value()) {
-        show_error(TareaErr::NullTitle);
-        return;
-    }
-
-    std::print("Ingrese una descripcion (opcional): ");
-    auto description = read_until(Tarea::MAX_DESC);
-
-    std::print("Ingrese una fecha (opcional): ");
-    auto date_text = read_until(Tarea::MAX_DATE);
-
-    std::optional<std::chrono::year_month_day> date;
-
-    if (date_text.has_value()) {
-        date = parse_date(*date_text);
-
-        if (!date.has_value()) {
-            show_error(TareaErr::InvalidDate);
-            return;
-        }
-    }
-
-    Tarea nueva_tarea(title.value(), description, date, false);
-
-    TareaErr error = list.add(nueva_tarea);
-
-    if (error == TareaErr::Ok) {
-        std::println("Tarea agregada exitosamente.");
-    } else {
-        show_error(error);
-    }
-}
-
-void UI::remove_task_dialogue() {
-    size_t index;
-
-    std::print("Ingrese el numero de la tarea a eliminar: ");
-
-    while (!(std::cin >> index)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::print("Entrada invalida, ingrese un numero: ");
-    }
-    std::cin.ignore();
-
-    TareaErr error = list.remove(index);
-
-    if (error == TareaErr::Ok) {
-        std::println("Tarea eliminada exitosamente.");
-    } else {
-        show_error(error);
-    }
-}
-
-void UI::update_task_dialogue() {
-    size_t index;
-
-    std::print("Ingrese el numero de la tarea a actualizar: ");
-
-    while (!(std::cin >> index)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::print("Entrada invalida, ingrese un numero: ");
-    }
-    std::cin.ignore();
-
-    std::print("Ingrese el nuevo titulo: ");
-    auto title = read_until(Tarea::MAX_TITLE);
-
-    if (!title.has_value()) {
-        show_error(TareaErr::NullTitle);
-        return;
-    }
-
-    std::print("Ingrese la nueva descripcion (opcional): ");
-    auto description = read_until(Tarea::MAX_DESC);
-
-    std::print("Ingrese la nueva fecha (opcional): ");
-    auto date_text = read_until(Tarea::MAX_DATE);
-
-    std::optional<std::chrono::year_month_day> date;
-
-    if (date_text.has_value()) {
-        date = parse_date(*date_text);
-
-        if (!date.has_value()) {
-            show_error(TareaErr::InvalidDate);
-            return;
-        }
-    }
-
-    Tarea nueva_tarea(title.value(), description, date, false);
-
-    TareaErr error = list.add(nueva_tarea);
-
-    if (error != TareaErr::Ok) {
-        show_error(error);
-        return;
-    }
-
-    error = list.remove(index);
-
-    if (error == TareaErr::Ok) {
-        std::println("Tarea actualizada exitosamente.");
-    } else {
-        show_error(error);
-    }
-}
-
-void UI::complete_task_dialogue() {
-    size_t index;
-
-    std::print("Ingrese el numero de la tarea a marcar como completada: ");
-
-    while (!(std::cin >> index)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::cout << "Entrada invalida, ingrese un numero: ";
-    }
-    std::cin.ignore();
-
-    std::expected<Tarea, TareaErr> tarea = list.get_by_index(index);
-
-    if (!tarea.has_value()) {
-        show_error(tarea.error());
-        return;
-    }
-
-    Tarea actualizada = tarea.value();
-    actualizada.set_completed(true);
-
-    std::expected<Tarea, TareaErr> resultado = list.edit(index, actualizada);
-
-    if (resultado.has_value()) {
-        std::println("Tarea marcada como completada.");
-    } else {
-        show_error(resultado.error());
-    }
-}
-
-void UI::clear_screen() {
-    std::print("\033[2J\033[1;1H");
-}
-
-void UI::show_error(TareaErr e) {
-    switch (e) {
-    case TareaErr::InvalidOption:
-        std::println(stderr, "Error: Opcion Invalida");
-    case TareaErr::NullTitle:
-        std::println(stderr, "Error: El titulo no puede estar vacio.");
-        break;
-    case TareaErr::OverSizeTitle:
-        std::println(stderr, "Error: El titulo es demasiado largo.");
-        break;
-
-    case TareaErr::OverSizeDesc:
-        std::println(stderr, "Error: La descripcion es demasiado larga.");
-        break;
-
-    case TareaErr::InvalidDate:
-        std::println(stderr, "Error: La fecha ingresada no es valida.");
-        break;
-
-    case TareaErr::IndexErr:
-        std::println(stderr, "Error: El indice de la tarea no existe.");
-        break;
-
-    case TareaErr::EmptyList:
-        std::println(stderr, "Error: La lista esta vacia.");
-        break;
-
-    case TareaErr::NotOverdue:
-        std::println(stderr, "Error: la tarea aun no esta vencida.");
-        break;
-
-    case TareaErr::AlreadyCompleted:
-        std::println(stderr,
-                     "Error: no se puede agregar una tarea ya completada.");
-        break;
-
-    case TareaErr::Ok:
-        break;
-    }
-}
-
-void UI::print_list() {
-    UI::print(this->list);
-}
-
-void UI::read_option() {
-    int option;
-
-    std::println("Seleccione una opción:");
-    std::println("1. Agregar tarea");
-    std::println("2. Eliminar tarea");
-    std::println("3. Actualizar tarea");
-    std::println("4. Mostrar tareas");
-    std::println("5. Marcar tarea como completada");
-    std::println("6. Salir");
-
-    while (!(std::cin >> option)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::print("Entrada invalida, ingrese un numero: ");
-    }
-    std::cin.ignore();
-
-    switch (option) {
-    case 1:
-        add_task_dialogue();
-        break;
-
-    case 2:
-        remove_task_dialogue();
-        break;
-
-    case 3:
-        update_task_dialogue();
-        break;
-
-    case 4:
-        UI::print(this->list);
-        break;
-
-    case 5:
-        complete_task_dialogue();
-        break;
-
-    case 6:
-        is_on = false;
-        break;
-
-    default:
-        show_error(TareaErr::InvalidOption);
-        break;
-    }
-}
-
-bool UI::is_running() {
-    return is_on;
-}
-
-UI::UI() : is_on(true) {}
+UI::UI() {}
 
 UI::~UI() {}
+
+void UI::run() {
+    auto screen = ftxui::ScreenInteractive::Fullscreen();
+
+    auto bar = ftxui::Toggle(&pestanas, &pestana_actual);
+
+    auto view = ftxui::Renderer(bar, [&] {
+        // Un texto por cada tarea de la lista de la pestaña activa
+        ftxui::Elements lineas;
+        ListaTarea& lista = lista_actual();
+
+        for (size_t i = 0; i < lista.len(); i++) {
+            Tarea tarea = lista.get_by_index(i).value();
+            std::string linea = "• " + tarea.get_title();
+
+            if (tarea.get_date().has_value()) {
+                linea += "  (" + format_date(*tarea.get_date()) + ")";
+            }
+
+            lineas.push_back(ftxui::text(linea));
+        }
+
+        if (lineas.empty()) {
+            lineas.push_back(ftxui::text("No hay tareas") | ftxui::dim);
+        }
+
+        return ftxui::vbox({
+            bar->Render(),
+            ftxui::separator(),
+            ftxui::vbox(lineas) | ftxui::flex,
+            ftxui::separator(),
+            ftxui::text("a: agregar   ←/→: cambiar pestaña   q: salir") | ftxui::dim,
+        }) | ftxui::border;
+    });
+
+    // ---- Dialogo para agregar tarea ----
+
+    auto cerrar_dialogo = [&] {
+        mostrar_dialogo = false;
+    };
+
+    auto guardar = [&] {
+        if (nuevo_titulo.empty()) {
+            mensaje_error = "El titulo no puede estar vacio.";
+            return;
+        }
+
+        std::optional<std::chrono::year_month_day> fecha;
+        if (!nueva_fecha.empty()) {
+            fecha = parse_date(nueva_fecha);
+            if (!fecha.has_value()) {
+                mensaje_error = "Fecha invalida, usa dd/mm/aaaa.";
+                return;
+            }
+        }
+
+        std::optional<std::string> descripcion;
+        if (!nueva_descripcion.empty()) {
+            descripcion = nueva_descripcion;
+        }
+
+        TareaErr error = agregar_tarea(Tarea(nuevo_titulo, descripcion, fecha, false));
+
+        if (error != TareaErr::Ok) {
+            mensaje_error = "No se pudo agregar: revisa titulo, descripcion o fecha.";
+            return;
+        }
+
+        mostrar_dialogo = false;
+    };
+
+    // Enter en cualquier caja guarda la tarea
+    ftxui::InputOption opcion;
+    opcion.multiline = false;
+    opcion.on_enter = guardar;
+
+    auto input_titulo = ftxui::Input(&nuevo_titulo, "obligatorio", opcion);
+    auto input_descripcion = ftxui::Input(&nueva_descripcion, "opcional", opcion);
+    auto input_fecha = ftxui::Input(&nueva_fecha, "dd/mm/aaaa (opcional)", opcion);
+
+    auto botones = ftxui::Container::Horizontal({
+        ftxui::Button("Guardar", guardar),
+        ftxui::Button("Cancelar", cerrar_dialogo),
+    });
+
+    // Las flechas arriba/abajo se mueven entre estas piezas
+    auto campos = ftxui::Container::Vertical({
+        input_titulo,
+        input_descripcion,
+        input_fecha,
+        botones,
+    });
+
+    auto dialogo = ftxui::Renderer(campos, [&] {
+        return ftxui::vbox({
+            ftxui::text("Nueva tarea") | ftxui::bold | ftxui::center,
+            ftxui::separator(),
+            ftxui::hbox({ftxui::text("Titulo:      "), input_titulo->Render()}),
+            ftxui::hbox({ftxui::text("Descripcion: "), input_descripcion->Render()}),
+            ftxui::hbox({ftxui::text("Fecha:       "), input_fecha->Render()}),
+            ftxui::text(mensaje_error) | ftxui::color(ftxui::Color::Red),
+            botones->Render() | ftxui::center,
+        }) | ftxui::border | ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 50);
+    });
+
+    // Modal: dibuja el dialogo encima de la vista cuando mostrar_dialogo es true
+    auto con_dialogo = ftxui::Modal(view, dialogo, &mostrar_dialogo);
+
+    auto app = ftxui::CatchEvent(con_dialogo, [&](ftxui::Event event) {
+        // Con el dialogo abierto, las teclas son para escribir (menos Esc)
+        if (mostrar_dialogo) {
+            if (event == ftxui::Event::Escape) {
+                cerrar_dialogo();
+                return true;
+            }
+            return false;
+        }
+
+        if (event == ftxui::Event::Character('q')) {
+            screen.Exit();
+            return true;
+        }
+
+        if (event == ftxui::Event::Character('a')) {
+            nuevo_titulo.clear();
+            nueva_descripcion.clear();
+            nueva_fecha.clear();
+            mensaje_error.clear();
+            mostrar_dialogo = true;
+            input_titulo->TakeFocus();
+            return true;
+        }
+
+        return false;
+    });
+
+    screen.Loop(app);
+}
+
+ListaTarea& UI::lista_actual() {
+    if (pestana_actual == 0) {
+        return list;
+    }
+    if (pestana_actual == 1) {
+        return todo;
+    }
+    if (pestana_actual == 2) {
+        return due;
+    }
+
+    return completed;
+}
+
+TareaErr UI::agregar_tarea(Tarea tarea) {
+    std::chrono::year_month_day hoy{
+        std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
+
+    TareaErr error;
+    int destino;
+
+    if (tarea.get_is_completed()) {
+        error = completed.add(tarea);
+        destino = 3;
+    } else if (!tarea.get_date().has_value()) {
+        error = list.add(tarea);
+        destino = 0;
+    } else if (*tarea.get_date() < hoy) {
+        error = due.add(tarea);
+        destino = 2;
+    } else {
+        error = todo.add(tarea);
+        destino = 1;
+    }
+
+    // Brincar a la pestaña donde quedo la tarea para que se vea
+    if (error == TareaErr::Ok) {
+        pestana_actual = destino;
+    }
+
+    return error;
+}

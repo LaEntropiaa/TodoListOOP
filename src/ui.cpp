@@ -364,12 +364,35 @@ void UI::run() {
     auto bar = ftxui::Toggle(&pestanas, &pestana_actual);
     
     auto view = ftxui::Renderer(bar,[&]{
-        
-        return ftxui::vbox ({bar->Render(), ftxui::separator(), ftxui::text(std::to_string(lista_actual().len() ))}) ; //convertimos lens a texto
 
+        // Un texto por cada tarea de la lista de la pestaña activa
+        ftxui::Elements lineas;
+        ListaTarea& lista = lista_actual();
+
+        for (size_t i = 0; i < lista.len(); i++) {
+            Tarea tarea = lista.get_by_index(i).value();
+            std::string linea = "• " + tarea.get_title();
+
+            if (tarea.get_date().has_value()) {
+                linea += "  (" + format_date(*tarea.get_date()) + ")";
+            }
+
+            lineas.push_back(ftxui::text(linea));
+        }
+
+        if (lineas.empty()) {
+            lineas.push_back(ftxui::text("No hay tareas") | ftxui::dim);
+        }
+
+        return ftxui::vbox({
+            bar->Render(),
+            ftxui::separator(),
+            ftxui::vbox(lineas) | ftxui::flex,
+            ftxui::separator(),
+            ftxui::text("a: agregar   ←/→: cambiar pestaña   q: salir") | ftxui::dim,
+        }) | ftxui::border;
     });
 
-    
     auto app = ftxui::CatchEvent(view, [&](ftxui::Event event){
     
         if (event == ftxui::Event::Character('q') ){

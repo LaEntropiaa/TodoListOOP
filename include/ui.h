@@ -37,6 +37,7 @@ class UI {
     void print_list();
     void read_option();
     bool is_running();
+    void run();
 
     UI();
     ~UI();

@@ -3,10 +3,6 @@
 int main(void) {
     UI ui = UI();
 
-    while (ui.is_running()) {
-        ui.clear_screen();
-        ui.print_list();
-        ui.read_option();
-    }
+ui.run();
     return 0;
 }

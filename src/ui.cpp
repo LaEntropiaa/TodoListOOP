@@ -351,3 +351,20 @@ bool UI::is_running() {
 UI::UI() : is_on(true) {}
 
 UI::~UI() {}
+
+
+
+
+
+
+void UI::run() {
+
+    auto screen = ftxui::ScreenInteractive::Fullscreen();
+    auto bar = ftxui::Toggle(&pestanas, &pestana_actual);
+    auto view = ftxui::Renderer(bar,[&]{return bar->Render();});
+    
+    screen.Loop(view);
+
+}
+
+

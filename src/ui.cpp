@@ -362,8 +362,18 @@ void UI::run() {
     auto screen = ftxui::ScreenInteractive::Fullscreen();
     auto bar = ftxui::Toggle(&pestanas, &pestana_actual);
     auto view = ftxui::Renderer(bar,[&]{return bar->Render();});
+    auto app = ftxui::CatchEvent(view, [&](ftxui::Event event){
     
-    screen.Loop(view);
+        if (event == ftxui::Event::Character('q') ){
+            
+            screen.Exit();
+            return true;
+        }
+    
+
+    return false;});
+
+    screen.Loop(app);
 
 }
 

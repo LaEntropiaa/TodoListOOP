@@ -11,14 +11,19 @@
 
 class UI {
   private:
+    
+  
     InboxLista list;
     TodoLista todo;
     DueLista due;
     CompleteLista completed;
     bool is_on;
     int pestana_actual = 0;
-    std::vector<std::string> pestanas = {"Inbox",  "Todo", "Due", "Completed" };
+    std::vector<std::string> pestanas = {"Inbox",  "Todo", "Due", "Completed" }; //variable de la lista que se mostrara despues en la salida
 
+  
+  
+  
     // More lists for the future
     // Database interaction necessary
     static std::optional<std::string> read_until(std::size_t limit);

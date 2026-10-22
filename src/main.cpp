@@ -1,8 +1,12 @@
 #include "ui.h"
 
+
 int main(void) {
+
+
     UI ui = UI();
 
-ui.run();
+
+    ui.run();
     return 0;
 }

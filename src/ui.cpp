@@ -360,8 +360,16 @@ UI::~UI() {}
 void UI::run() {
 
     auto screen = ftxui::ScreenInteractive::Fullscreen();
+    
     auto bar = ftxui::Toggle(&pestanas, &pestana_actual);
-    auto view = ftxui::Renderer(bar,[&]{return bar->Render();});
+    
+    auto view = ftxui::Renderer(bar,[&]{
+        
+        return ftxui::vbox ({bar->Render(), ftxui::separator(), ftxui::text(std::to_string(lista_actual().len() ))}) ; //convertimos lens a texto
+
+    });
+
+    
     auto app = ftxui::CatchEvent(view, [&](ftxui::Event event){
     
         if (event == ftxui::Event::Character('q') ){
@@ -377,4 +385,20 @@ void UI::run() {
 
 }
 
+ListaTarea& UI::lista_actual () {
+    
+    if  (pestana_actual == 0){
+        return list;
+    }
+    if (pestana_actual == 1 ){
+        return todo;
+    }
+    if (pestana_actual == 2){
+        return due;
+    }
 
+    return completed;
+
+
+
+}

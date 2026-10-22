@@ -20,7 +20,7 @@ class UI {
     bool is_on;
     int pestana_actual = 0;
     std::vector<std::string> pestanas = {"Inbox",  "Todo", "Due", "Completed" }; //variable de la lista que se mostrara despues en la salida
-
+    ListaTarea& lista_actual (void);
   
   
   

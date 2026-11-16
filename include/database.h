@@ -18,6 +18,8 @@ enum class DatabaseError {
     CreateSchema,
     BadVersion,
     IncorrectPassword,
+    NotUniqueUserName,
+    FailedToSavePassword,
 };
 
 class Database {
@@ -30,10 +32,14 @@ class Database {
     DatabaseError create_schema();
 
     std::optional<int> get_user_id(const std::string &name);
-    std::optional<std::string> get_salt(int user_id);
     std::optional<std::string> get_hash(int user_id);
+
+    std::optional<int> insert_user(const std::string &name);
+    DatabaseError insert_password(const std::string &hash, int user_id);
 
   public:
     static std::expected<Database, DatabaseError> open();
     DatabaseError login(const std::string &user, const std::string &password);
+    DatabaseError create_user(const std::string &user,
+                              const std::string &password);
 };

@@ -1,5 +1,4 @@
 #include "database.h"
-#include "bcrypt/bcrypt.h"
 #include <bcrypt/BCrypt.hpp>
 #include <crypt.h>
 #include <cstring>
@@ -109,8 +108,7 @@ DatabaseError Database::create_schema() {
         CREATE TABLE passwords (
             id INTEGER PRIMARY KEY,
             user_id INTEGER NOT NULL UNIQUE,
-            hash TEXT NOT NULL,
-            salt TEXT NOT NULL
+            hash TEXT NOT NULL
         );
 
         PRAGMA user_version = 1;
@@ -153,34 +151,6 @@ std::optional<int> Database::get_user_id(const std::string &name) {
     }
 
     return user_id;
-}
-
-std::optional<std::string> Database::get_salt(int user_id) {
-    std::optional<std::string> salt;
-
-    auto callback = [](void *data, int argc, char **argv, char **) -> int {
-        auto *salt = static_cast<std::optional<std::string> *>(data);
-
-        if (argc == 1 && argv[0] != nullptr) {
-            *salt = std::string(argv[0]);
-        }
-
-        return 0;
-    };
-
-    char *error = nullptr;
-
-    std::string query = "SELECT salt FROM passwords WHERE user_id = " +
-                        std::to_string(user_id) + ";";
-
-    int rc = sqlite3_exec(this->db, query.c_str(), callback, &salt, &error);
-
-    if (rc != SQLITE_OK) {
-        sqlite3_free(error);
-        return std::nullopt;
-    }
-
-    return salt;
 }
 
 std::optional<std::string> Database::get_hash(int user_id) {
@@ -229,4 +199,56 @@ DatabaseError Database::login(const std::string &user,
     }
 
     return DatabaseError::IncorrectPassword;
+}
+
+std::optional<int> Database::insert_user(const std::string &name) {
+    std::string query = "INSERT INTO users (name) VALUES('" + name + "');";
+
+    char *error = nullptr;
+
+    int rc = sqlite3_exec(this->db, query.c_str(), nullptr, nullptr, &error);
+
+    if (rc != SQLITE_OK) {
+        return std::nullopt;
+    }
+
+    auto id = this->get_user_id(name);
+    if (!id.has_value()) {
+        return std::nullopt;
+    }
+
+    return id;
+}
+
+DatabaseError Database::insert_password(const std::string &hash, int user_id) {
+    std::string query = "INSERT INTO passwords (user_id, hash) VALUES('" +
+                        hash + "', " + std::to_string(user_id) + ");";
+
+    char *error = nullptr;
+
+    int rc = sqlite3_exec(this->db, query.c_str(), nullptr, nullptr, &error);
+
+    if (rc != SQLITE_OK) {
+        return DatabaseError::FailedToSavePassword;
+    }
+
+    return DatabaseError::Ok;
+}
+
+DatabaseError Database::create_user(const std::string &user,
+                                    const std::string &password) {
+    auto user_id = this->insert_user(user);
+    if (!user_id.has_value()) {
+        return DatabaseError::NotUniqueUserName;
+    }
+
+    auto hash = BCrypt::generateHash(password, 14);
+
+    auto rc = this->insert_password(hash, user_id.value());
+    if (rc != DatabaseError::Ok) {
+        // TODO destroy user so no conflict
+        return rc;
+    }
+
+    return DatabaseError::Ok;
 }

@@ -28,5 +28,5 @@ class Database {
     DatabaseError create_schema();
 
   public:
-    std::expected<Database, DatabaseError> open();
+    static std::expected<Database, DatabaseError> open();
 };

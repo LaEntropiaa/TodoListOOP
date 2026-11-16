@@ -16,18 +16,17 @@ std::expected<Database, DatabaseError> Database::open() {
         return std::unexpected(DatabaseError::Corrupted);
     }
 
-    int version = this->get_version();
+    int version = db.get_version();
 
     switch (version) {
     case 0:
-        if (this->create_schema() != DatabaseError::Ok) {
+        if (db.create_schema() != DatabaseError::Ok) {
             return std::unexpected(DatabaseError::CreateSchema);
         }
-        [[fallthrough]];
+        break;
     case 1:
         // sets user_version to 1, if scheme changes,
         // the designated migration funtion must be used
-        this->create_schema();
         break;
     default:
         return std::unexpected(DatabaseError::BadVersion);
@@ -38,6 +37,7 @@ std::expected<Database, DatabaseError> Database::open() {
 
 bool Database::integrity_check() {
     char *error = nullptr;
+    bool valid = false;
 
     auto callback = [](void *data, int argc, char **argv, char **) -> int {
         bool *result = static_cast<bool *>(data);
@@ -52,7 +52,7 @@ bool Database::integrity_check() {
     int rc = sqlite3_exec(this->db,
                           "PRAGMA integrity_check",
                           callback,
-                          nullptr,
+                          &valid,
                           &error);
 
     if (rc != SQLITE_OK) {
@@ -60,17 +60,17 @@ bool Database::integrity_check() {
         return false;
     }
 
-    return true;
+    return valid;
 }
 
 size_t Database::get_version() {
-    int version = 0;
+    size_t version = 0;
 
     auto callback = [](void *data, int argc, char **argv, char **) -> int {
-        bool *result = static_cast<bool *>(data);
+        auto *version = static_cast<size_t *>(data);
 
         if (argc == 1 && argv[0] != nullptr) {
-            *result = std::strcmp(argv[0], "ok") == 0;
+            *version = std::stoul(argv[0]);
         }
 
         return 0;
@@ -106,7 +106,7 @@ DatabaseError Database::create_schema() {
             id INTEGER PRIMARY KEY,
             user_id INTEGER NOT NULL UNIQUE,
             hash TEXT NOT NULL,
-            salt TEXT NOT NULL,
+            salt TEXT NOT NULL
         );
 
         PRAGMA user_version = 1;

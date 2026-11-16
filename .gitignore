@@ -7,3 +7,6 @@ compile_commands.json
 
 # Editor / LSP
 .cache/
+
+#db
+main.db

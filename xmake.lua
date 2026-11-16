@@ -10,6 +10,7 @@ add_requires("ftxui")
 
 target("todo")
 set_kind("binary")
+set_rundir("$(projectdir)")
 
 add_files("src/*.cpp")
 add_includedirs("include")

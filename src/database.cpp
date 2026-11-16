@@ -1,11 +1,15 @@
 #include "database.h"
+#include "tarea.h"
 #include <bcrypt/BCrypt.hpp>
+#include <chrono>
 #include <cstring>
 #include <expected>
 #include <format>
 #include <optional>
 #include <sqlite3.h>
+#include <sstream>
 #include <string>
+#include <vector>
 
 std::expected<Database, DatabaseError> Database::open() {
     Database db;
@@ -280,10 +284,11 @@ DatabaseError Database::insert_task(Tarea tarea) {
         completed = "1";
     }
 
-    std::string query = "INSERT INTO tasks (title, description, due_date, "
-                        "completed) VALUES('" +
-                        tarea.get_title() + "', '" + desc + "', '" + date +
-                        "', " + completed + ");";
+    std::string query =
+        "INSERT INTO tasks (user_id, title, description, due_date, "
+        "completed) VALUES(" +
+        std::to_string(this->user.value()) + ", '" + tarea.get_title() +
+        "', '" + desc + "', '" + date + "', " + completed + ");";
 
     char *error = nullptr;
     int rc = sqlite3_exec(this->db, query.c_str(), nullptr, nullptr, &error);
@@ -293,4 +298,73 @@ DatabaseError Database::insert_task(Tarea tarea) {
     }
 
     return DatabaseError::Ok;
+}
+
+int Database::parse_user_tasks(void *vector, int argc, char **argv, char **) {
+    auto *tasks =
+        static_cast<std::expected<std::vector<Tarea>, DatabaseError> *>(vector);
+
+    if (argc != 4) {
+        *tasks = std::unexpected(DatabaseError::BadQuery);
+        return 1;
+    }
+
+    auto task = parse_task(argv);
+
+    if (!task.has_value()) {
+        *tasks = std::unexpected(DatabaseError::InvalidTask);
+        return 1;
+    }
+
+    tasks->value().push_back(*task);
+
+    return 0;
+}
+
+std::optional<Tarea> Database::parse_task(char **row) {
+    std::string title = row[0];
+
+    std::optional<std::string> desc = row[1];
+    if (strcmp(row[1], "NULL") == 0) {
+        desc = std::nullopt;
+    }
+
+    std::istringstream stream(row[2]);
+    std::optional<std::chrono::year_month_day> date;
+    std::chrono::from_stream(stream, "%F", date.value());
+
+    if (stream.fail() || !date.value().ok()) {
+        date = std::nullopt;
+    }
+
+    bool completed = false;
+    if (strcmp(row[3], "1") == 0) {
+        completed = true;
+    }
+
+    return Tarea(title, desc, date, completed);
+}
+
+std::expected<std::vector<Tarea>, DatabaseError> Database::get_tasks() {
+    if (!this->user.has_value()) {
+        return std::unexpected(DatabaseError::NoUserLogged);
+    }
+
+    std::expected<std::vector<Tarea>, DatabaseError> tasks;
+
+    char *error = nullptr;
+
+    std::string query = "SELECT title, description, date, completed FROM tasks "
+                        "WHERE user_id = " +
+                        std::to_string(this->user.value()) + ";";
+
+    int rc =
+        sqlite3_exec(this->db, query.c_str(), parse_user_tasks, &tasks, &error);
+
+    if (rc != SQLITE_OK) {
+        sqlite3_free(error);
+        return tasks;
+    }
+
+    return tasks;
 }

@@ -13,9 +13,11 @@ enum class DatabaseError {
     Ok,
     CantOpen,
     UserNotFound,
+    PasswordNotFound,
     Corrupted,
     CreateSchema,
     BadVersion,
+    IncorrectPassword,
 };
 
 class Database {
@@ -27,6 +29,11 @@ class Database {
     size_t get_version();
     DatabaseError create_schema();
 
+    std::optional<int> get_user_id(const std::string &name);
+    std::optional<std::string> get_salt(int user_id);
+    std::optional<std::string> get_hash(int user_id);
+
   public:
     static std::expected<Database, DatabaseError> open();
+    DatabaseError login(const std::string &user, const std::string &password);
 };

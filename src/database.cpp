@@ -1,8 +1,8 @@
 #include "database.h"
 #include <bcrypt/BCrypt.hpp>
-#include <crypt.h>
 #include <cstring>
 #include <expected>
+#include <format>
 #include <optional>
 #include <sqlite3.h>
 #include <string>
@@ -102,7 +102,8 @@ DatabaseError Database::create_schema() {
             user_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             description TEXT,
-            due_date TEXT
+            due_date TEXT,
+            completed BOOLEAN NOT NULL
         );
 
         CREATE TABLE passwords (
@@ -248,6 +249,47 @@ DatabaseError Database::create_user(const std::string &user,
     if (rc != DatabaseError::Ok) {
         // TODO destroy user so no conflict
         return rc;
+    }
+
+    return DatabaseError::Ok;
+}
+
+DatabaseError Database::insert_task(Tarea tarea) {
+    if (!this->user.has_value()) {
+        return DatabaseError::NoUserLogged;
+    }
+
+    std::string desc;
+    if (!tarea.get_description().has_value()) {
+        desc = "NULL";
+    } else {
+        desc = tarea.get_description().value();
+    }
+
+    std::string date;
+    if (!tarea.get_date().has_value()) {
+        date = "NULL";
+    } else {
+        date = std::format("{:%Y-%m-%d}", tarea.get_date().value());
+    }
+
+    std::string completed;
+    if (!tarea.get_is_completed()) {
+        completed = "0";
+    } else {
+        completed = "1";
+    }
+
+    std::string query = "INSERT INTO tasks (title, description, due_date, "
+                        "completed) VALUES('" +
+                        tarea.get_title() + "', '" + desc + "', '" + date +
+                        "', " + completed + ");";
+
+    char *error = nullptr;
+    int rc = sqlite3_exec(this->db, query.c_str(), nullptr, nullptr, &error);
+
+    if (rc != SQLITE_OK) {
+        return DatabaseError::FailedTaskInsert;
     }
 
     return DatabaseError::Ok;

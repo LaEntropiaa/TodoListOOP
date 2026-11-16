@@ -20,6 +20,8 @@ enum class DatabaseError {
     IncorrectPassword,
     NotUniqueUserName,
     FailedToSavePassword,
+    NoUserLogged,
+    FailedTaskInsert,
 };
 
 class Database {
@@ -42,4 +44,6 @@ class Database {
     DatabaseError login(const std::string &user, const std::string &password);
     DatabaseError create_user(const std::string &user,
                               const std::string &password);
+
+    DatabaseError insert_task(Tarea tarea);
 };

@@ -28,6 +28,7 @@ enum class DatabaseError {
     InvalidTask,
     TaskAlreadyExists,
     FailedTaskUpdate,
+    FailedTaskDelete,
 };
 
 class Database {
@@ -55,4 +56,5 @@ class Database {
     DatabaseError insert_task(Tarea tarea);
     std::expected<std::vector<Tarea>, DatabaseError> get_tasks();
     DatabaseError update_task(const std::string &title, Tarea new_tarea);
+    DatabaseError delete_task(Tarea tarea);
 };

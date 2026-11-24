@@ -390,6 +390,9 @@ std::expected<std::vector<Tarea>, DatabaseError> Database::get_tasks() {
 }
 
 DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
+    if (!this->user.has_value()) {
+        return DatabaseError::NoUserLogged;
+    }
     sqlite3_stmt *stmt = nullptr;
 
     const char *sql =
@@ -448,6 +451,35 @@ DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_OK) {
         return DatabaseError::TaskAlreadyExists;
+    }
+
+    sqlite3_finalize(stmt);
+    return DatabaseError::Ok;
+}
+
+DatabaseError Database::delete_task(Tarea tarea) {
+    if (!this->user.has_value()) {
+        return DatabaseError::NoUserLogged;
+    }
+
+    sqlite3_stmt *stmt = nullptr;
+
+    const char *sql = "DELETE FROM tasks WHERE user_id = ? AND title ?;";
+
+    int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
+
+    if (rc != SQLITE_OK) {
+        return DatabaseError::FailedTaskDelete;
+    }
+
+    sqlite3_bind_int(stmt, 1, this->user.value());
+
+    sqlite3_bind_text(stmt, 2, tarea.get_title().c_str(), -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return DatabaseError::FailedTaskDelete;
     }
 
     sqlite3_finalize(stmt);

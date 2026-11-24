@@ -41,8 +41,6 @@ class Database {
 
     std::optional<int> insert_user(const std::string &name);
     DatabaseError insert_password(const std::string &hash, int user_id);
-    static std::optional<Tarea> parse_task(char **row);
-    static int parse_user_tasks(void *vector, int argc, char **argv, char **);
 
   public:
     static std::expected<Database, DatabaseError> open();

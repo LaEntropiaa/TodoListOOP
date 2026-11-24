@@ -272,8 +272,10 @@ DatabaseError Database::insert_task(Tarea tarea) {
 
     sqlite3_stmt *stmt = nullptr;
 
-    const char *sql = "INSERT INTO tasks (user_id, title, description, "
-                      "due_date, completed) VALUES(?,?,?,?,?);";
+    const char *sql =
+        "INSERT INTO tasks (user_id, title, description, "
+        "due_date, completed) SELECT ?,?,?,?,? WHERE (SELECT "
+        "COUNT(*) FROM tasks WHERE user_id = ?AND title = ?) < 2;";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -311,11 +313,14 @@ DatabaseError Database::insert_task(Tarea tarea) {
         sqlite3_bind_int(stmt, 5, 0);
     }
 
+    sqlite3_bind_int(stmt, 6, this->user.value());
+    sqlite3_bind_text(stmt, 7, tarea.get_title().c_str(), -1, SQLITE_TRANSIENT);
+
     rc = sqlite3_step(stmt);
 
     if (rc != SQLITE_OK) {
         sqlite3_finalize(stmt);
-        return DatabaseError::FailedTaskInsert;
+        return DatabaseError::TaskAlreadyExists;
     }
 
     sqlite3_finalize(stmt);
@@ -380,5 +385,71 @@ std::expected<std::vector<Tarea>, DatabaseError> Database::get_tasks() {
         tasks->push_back(task);
     }
 
+    sqlite3_finalize(stmt);
     return tasks;
+}
+
+DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
+    sqlite3_stmt *stmt = nullptr;
+
+    const char *sql =
+        "UPDATE tasks SET title = ?, description = ?, date = ?, completed = ? "
+        "WHERE user_id = ? AND title = ? AND (SELECT COUNT(*) FROM tasks WHERE "
+        "user_id = ? AND title = ?) < 2;";
+
+    int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
+
+    if (rc != SQLITE_OK) {
+        return DatabaseError::FailedTaskUpdate;
+    }
+
+    sqlite3_bind_text(stmt,
+                      1,
+                      new_tarea.get_title().c_str(),
+                      -1,
+                      SQLITE_TRANSIENT);
+
+    if (new_tarea.get_description().has_value()) {
+        sqlite3_bind_text(stmt,
+                          2,
+                          new_tarea.get_description().value().c_str(),
+                          -1,
+                          SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 2);
+    }
+
+    if (new_tarea.get_date().has_value()) {
+        sqlite3_bind_text(
+            stmt,
+            3,
+            std::format("{:%Y-%m-%d}", new_tarea.get_date().value()).c_str(),
+            -1,
+            SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 3);
+    }
+
+    if (new_tarea.get_is_completed()) {
+        sqlite3_bind_int(stmt, 4, 1);
+    } else {
+        sqlite3_bind_int(stmt, 4, 0);
+    }
+
+    sqlite3_bind_int(stmt, 5, this->user.value());
+    sqlite3_bind_text(stmt, 6, title.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 7, this->user.value());
+    sqlite3_bind_text(stmt,
+                      8,
+                      new_tarea.get_title().c_str(),
+                      -1,
+                      SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_OK) {
+        return DatabaseError::TaskAlreadyExists;
+    }
+
+    sqlite3_finalize(stmt);
+    return DatabaseError::Ok;
 }

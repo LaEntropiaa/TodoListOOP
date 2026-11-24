@@ -6,6 +6,7 @@
 #include <inttypes.h>
 #include <optional>
 #include <sqlite3.h>
+#include <string>
 #include <vector>
 
 constexpr int DATABASE_VERSION = 1;
@@ -25,6 +26,8 @@ enum class DatabaseError {
     FailedTaskInsert,
     BadQuery,
     InvalidTask,
+    TaskAlreadyExists,
+    FailedTaskUpdate,
 };
 
 class Database {
@@ -41,6 +44,7 @@ class Database {
 
     std::optional<int> insert_user(const std::string &name);
     DatabaseError insert_password(const std::string &hash, int user_id);
+    bool task_exists(const std::string &name);
 
   public:
     static std::expected<Database, DatabaseError> open();
@@ -50,4 +54,5 @@ class Database {
 
     DatabaseError insert_task(Tarea tarea);
     std::expected<std::vector<Tarea>, DatabaseError> get_tasks();
+    DatabaseError update_task(const std::string &title, Tarea new_tarea);
 };

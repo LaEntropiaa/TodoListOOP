@@ -2,6 +2,7 @@
 #include "ui.h"
 #include <print>
 
-int main(void) {
-    return 0;
+int main(int argc, char **argv) {
+    UI ui = UI();
+    return ui.run(argc, argv);
 }

@@ -590,3 +590,7 @@ DatabaseError Database::delete_task(Tarea tarea) {
 
     return DatabaseError::Ok;
 }
+
+void Database::close() {
+    sqlite3_close(this->db);
+}

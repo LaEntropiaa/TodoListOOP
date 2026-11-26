@@ -1,11 +1,11 @@
 #include "tarea.h"
 
+#include <chrono>
 #include <ctime>
 #include <expected>
 
-std::chrono::year_month_day today() {
-    return std::chrono::year_month_day{std::chrono::floor<std::chrono::days>(
-        std::chrono::system_clock::now())};
+std::chrono::system_clock::time_point today() {
+    return std::chrono::system_clock::now();
 }
 
 TareaErr ListaTarea::validate(const Tarea &tarea) {
@@ -16,10 +16,6 @@ TareaErr ListaTarea::validate(const Tarea &tarea) {
     if (tarea.get_description().has_value() &&
         tarea.get_description()->size() > Tarea::MAX_DESC) {
         return TareaErr::OverSizeDesc;
-    }
-
-    if (tarea.get_date().has_value() && !tarea.get_date()->ok()) {
-        return TareaErr::InvalidDate;
     }
 
     return TareaErr::Ok;
@@ -100,7 +96,7 @@ TareaErr DueLista::add(Tarea tarea) {
         return TareaErr::AlreadyCompleted;
     }
 
-    std::chrono::year_month_day fecha = *tarea.get_date();
+    std::chrono::system_clock::time_point fecha = *tarea.get_date();
 
     if (fecha >= today()) {
         return TareaErr::NotOverdue;
@@ -148,7 +144,7 @@ TareaErr TodoLista::add(Tarea tarea) {
         return TareaErr::AlreadyCompleted;
     }
 
-    std::chrono::year_month_day fecha = *tarea.get_date();
+    std::chrono::system_clock::time_point fecha = *tarea.get_date();
 
     if (fecha < today()) {
         return TareaErr::Overdue;

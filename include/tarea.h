@@ -11,7 +11,7 @@ class Tarea {
   private:
     std::string title;
     std::optional<std::string> description;
-    std::optional<std::chrono::year_month_day> date;
+    std::optional<std::chrono::system_clock::time_point> date;
     bool is_completed;
 
     static std::chrono::year_month_day today();
@@ -23,7 +23,7 @@ class Tarea {
 
     Tarea(std::string title,
           std::optional<std::string> description,
-          std::optional<std::chrono::year_month_day> date,
+          std::optional<std::chrono::system_clock::time_point> date,
           bool is_completed)
         : title(std::move(title)), description(std::move(description)),
           date(std::move(date)), is_completed(is_completed) {};
@@ -36,7 +36,7 @@ class Tarea {
         return description;
     }
 
-    std::optional<std::chrono::year_month_day> get_date() const {
+    std::optional<std::chrono::system_clock::time_point> get_date() const {
         return date;
     }
 

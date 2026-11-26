@@ -2,33 +2,14 @@
 
 #include "database.h"
 #include "tarea.h"
-#include <chrono>
-#include <string>
 
 class UI {
   private:
-    InboxLista list;
-    bool is_on;
-    // More lists for the future
-    // Database interaction necessary
-    static std::optional<std::string> read_until(std::size_t limit);
-    static std::optional<std::chrono::year_month_day>
-    parse_date(const std::string &text);
-    static void print(ListaTarea &lista);
-    static std::string format_date(const std::chrono::year_month_day &date);
-
-    void show_error(TareaErr e);
-    void add_task_dialogue();
-    void remove_task_dialogue();
-    void update_task_dialogue();
-    void complete_task_dialogue();
+    InboxLista inbox;
+    DueLista due;
+    CompleteLista complete;
+    TodoLista todo;
+    Database db;
 
   public:
-    void clear_screen();
-    void print_list();
-    void read_option();
-    bool is_running();
-
-    UI();
-    ~UI();
 };

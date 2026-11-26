@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstring>
 #include <expected>
+#include <filesystem>
 #include <format>
 #include <optional>
 #include <sqlite3.h>
@@ -15,6 +16,15 @@ std::expected<Database, DatabaseError> Database::open() {
     Database db;
     db.user = std::nullopt;
 
+    // Ensure directory exists
+
+    if (!std::filesystem::create_directories("db")) {
+        if (!std::filesystem::is_directory("db")) {
+            return std::unexpected(DatabaseError::CantOpen);
+        }
+    }
+
+    // Open db
     if (sqlite3_open("db/main.db", &db.db) != SQLITE_OK) {
         sqlite3_close(db.db);
         return std::unexpected(DatabaseError::CantOpen);

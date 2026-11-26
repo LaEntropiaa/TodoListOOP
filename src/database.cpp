@@ -1,15 +1,15 @@
 #include "database.h"
 #include "tarea.h"
+
 #include <bcrypt/BCrypt.hpp>
 #include <chrono>
 #include <cstring>
 #include <expected>
 #include <filesystem>
-#include <format>
 #include <optional>
 #include <sqlite3.h>
-#include <sstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 std::expected<Database, DatabaseError> Database::open() {
@@ -18,13 +18,16 @@ std::expected<Database, DatabaseError> Database::open() {
 
     // Ensure directory exists
 
-    if (!std::filesystem::create_directories("db")) {
-        if (!std::filesystem::is_directory("db")) {
+    std::error_code ec;
+
+    if (!std::filesystem::create_directories("db", ec)) {
+        if (ec || !std::filesystem::is_directory("db")) {
             return std::unexpected(DatabaseError::CantOpen);
         }
     }
 
-    // Open db
+    // Open database
+
     if (sqlite3_open("db/main.db", &db.db) != SQLITE_OK) {
         sqlite3_close(db.db);
         return std::unexpected(DatabaseError::CantOpen);
@@ -44,10 +47,13 @@ std::expected<Database, DatabaseError> Database::open() {
             return std::unexpected(DatabaseError::CreateSchema);
         }
         break;
+
     case 1:
-        // sets user_version to 1, if scheme changes,
-        // the designated migration funtion must be used
+        // Sets user_version to 1.
+        // If the schema changes, the designated migration
+        // function must be used.
         break;
+
     default:
         sqlite3_close(db.db);
         return std::unexpected(DatabaseError::BadVersion);
@@ -71,7 +77,7 @@ bool Database::integrity_check() {
     };
 
     int rc = sqlite3_exec(this->db,
-                          "PRAGMA integrity_check",
+                          "PRAGMA integrity_check;",
                           callback,
                           &valid,
                           &error);
@@ -100,7 +106,7 @@ size_t Database::get_version() {
     char *error = nullptr;
 
     int rc = sqlite3_exec(this->db,
-                          "PRAGMA user_version",
+                          "PRAGMA user_version;",
                           callback,
                           &version,
                           &error);
@@ -164,12 +170,12 @@ std::optional<int> Database::get_user_id(const std::string &name) {
 
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
 
-    // if it fails then never assigns;
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
         user_id = sqlite3_column_int(stmt, 0);
     }
 
     sqlite3_finalize(stmt);
+
     return user_id;
 }
 
@@ -188,22 +194,30 @@ std::optional<std::string> Database::get_hash(int user_id) {
 
     sqlite3_bind_int(stmt, 1, user_id);
 
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        hash = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char *value =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+
+        if (value != nullptr) {
+            hash = value;
+        }
     }
 
     sqlite3_finalize(stmt);
+
     return hash;
 }
 
 DatabaseError Database::login(const std::string &user,
                               const std::string &password) {
     auto user_id = this->get_user_id(user);
+
     if (!user_id.has_value()) {
         return DatabaseError::UserNotFound;
     }
 
     auto hash = this->get_hash(user_id.value());
+
     if (!hash.has_value()) {
         return DatabaseError::PasswordNotFound;
     }
@@ -219,7 +233,7 @@ DatabaseError Database::login(const std::string &user,
 std::optional<int> Database::insert_user(const std::string &name) {
     sqlite3_stmt *stmt = nullptr;
 
-    const char *sql = "INSERT INTO users (name) VALUES(?);";
+    const char *sql = "INSERT INTO users (name) VALUES (?);";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -236,13 +250,9 @@ std::optional<int> Database::insert_user(const std::string &name) {
         return std::nullopt;
     }
 
-    auto id = this->get_user_id(name);
+    const int id = static_cast<int>(sqlite3_last_insert_rowid(this->db));
 
     sqlite3_finalize(stmt);
-
-    if (!id.has_value()) {
-        return std::nullopt;
-    }
 
     return id;
 }
@@ -250,7 +260,7 @@ std::optional<int> Database::insert_user(const std::string &name) {
 DatabaseError Database::insert_password(const std::string &hash, int user_id) {
     sqlite3_stmt *stmt = nullptr;
 
-    const char *sql = "INSERT INTO passwords (user_id, hash) VALUES(?,?);";
+    const char *sql = "INSERT INTO passwords (user_id, hash) VALUES (?, ?);";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -259,6 +269,7 @@ DatabaseError Database::insert_password(const std::string &hash, int user_id) {
     }
 
     sqlite3_bind_int(stmt, 1, user_id);
+
     sqlite3_bind_text(stmt, 2, hash.c_str(), -1, SQLITE_TRANSIENT);
 
     rc = sqlite3_step(stmt);
@@ -269,12 +280,14 @@ DatabaseError Database::insert_password(const std::string &hash, int user_id) {
     }
 
     sqlite3_finalize(stmt);
+
     return DatabaseError::Ok;
 }
 
 DatabaseError Database::create_user(const std::string &user,
                                     const std::string &password) {
     auto user_id = this->insert_user(user);
+
     if (!user_id.has_value()) {
         return DatabaseError::NotUniqueUserName;
     }
@@ -282,8 +295,9 @@ DatabaseError Database::create_user(const std::string &user,
     auto hash = BCrypt::generateHash(password, 14);
 
     auto rc = this->insert_password(hash, user_id.value());
+
     if (rc != DatabaseError::Ok) {
-        // TODO destroy user so no conflict
+        // TODO: destroy user so no conflict
         return rc;
     }
 
@@ -297,11 +311,14 @@ DatabaseError Database::insert_task(Tarea tarea) {
 
     sqlite3_stmt *stmt = nullptr;
 
-    const char *sql = "INSERT INTO tasks (user_id, title, description, "
-                      "due_date, completed) "
+    const char *sql = "INSERT INTO tasks "
+                      "(user_id, title, description, due_date, completed) "
                       "SELECT ?, ?, ?, ?, ? "
-                      "WHERE (SELECT COUNT(*) FROM tasks "
-                      "WHERE user_id = ? AND title = ?) < 2;";
+                      "WHERE ("
+                      "    SELECT COUNT(*) "
+                      "    FROM tasks "
+                      "    WHERE user_id = ? AND title = ?"
+                      ") < 2;";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -309,10 +326,13 @@ DatabaseError Database::insert_task(Tarea tarea) {
         return DatabaseError::FailedTaskInsert;
     }
 
+    // user_id
     sqlite3_bind_int(stmt, 1, this->user.value());
 
+    // title
     sqlite3_bind_text(stmt, 2, tarea.get_title().c_str(), -1, SQLITE_TRANSIENT);
 
+    // description
     if (tarea.get_description().has_value()) {
         sqlite3_bind_text(stmt,
                           3,
@@ -323,20 +343,20 @@ DatabaseError Database::insert_task(Tarea tarea) {
         sqlite3_bind_null(stmt, 3);
     }
 
+    // due_date
     if (tarea.get_date().has_value()) {
-        auto timestamp =
+        const auto timestamp =
             std::chrono::system_clock::to_time_t(tarea.get_date().value());
-        sqlite3_bind_int64(stmt, 4, timestamp);
+
+        sqlite3_bind_int64(stmt, 4, static_cast<sqlite3_int64>(timestamp));
     } else {
         sqlite3_bind_null(stmt, 4);
     }
 
-    if (tarea.get_is_completed()) {
-        sqlite3_bind_int(stmt, 5, 1);
-    } else {
-        sqlite3_bind_int(stmt, 5, 0);
-    }
+    // completed
+    sqlite3_bind_int(stmt, 5, tarea.get_is_completed() ? 1 : 0);
 
+    // Parameters used by the duplicate check
     sqlite3_bind_int(stmt, 6, this->user.value());
 
     sqlite3_bind_text(stmt, 7, tarea.get_title().c_str(), -1, SQLITE_TRANSIENT);
@@ -354,6 +374,7 @@ DatabaseError Database::insert_task(Tarea tarea) {
     }
 
     sqlite3_finalize(stmt);
+
     return DatabaseError::Ok;
 }
 
@@ -366,8 +387,9 @@ std::expected<std::vector<Tarea>, DatabaseError> Database::get_tasks() {
 
     sqlite3_stmt *stmt = nullptr;
 
-    const char *sql = "SELECT title, description, due_date, completed "
-                      "FROM tasks WHERE user_id = ?;";
+    const char *sql = "SELECT id, title, description, due_date, completed "
+                      "FROM tasks "
+                      "WHERE user_id = ?;";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -378,39 +400,49 @@ std::expected<std::vector<Tarea>, DatabaseError> Database::get_tasks() {
     sqlite3_bind_int(stmt, 1, this->user.value());
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char *title =
-            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        // id
+        const int id = sqlite3_column_int(stmt, 0);
 
+        // title
+        const char *title =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+
+        if (title == nullptr) {
+            continue;
+        }
+
+        // description
         std::optional<std::string> description;
 
-        if (sqlite3_column_type(stmt, 1) == SQLITE_NULL) {
-            description = std::nullopt;
-        } else {
-            description =
-                reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+        if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
+            const char *value =
+                reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+
+            if (value != nullptr) {
+                description = value;
+            }
         }
 
+        // due_date
         std::optional<std::chrono::system_clock::time_point> date;
 
-        if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
-            auto timestamp = sqlite3_column_int64(stmt, 2);
-            date = std::chrono::system_clock::from_time_t(timestamp);
+        if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
+            const auto timestamp = sqlite3_column_int64(stmt, 3);
+
+            date = std::chrono::system_clock::from_time_t(
+                static_cast<std::time_t>(timestamp));
         }
 
-        bool completed;
+        // completed
+        const bool completed = sqlite3_column_int(stmt, 4) != 0;
 
-        if (sqlite3_column_int(stmt, 3) != 0) {
-            completed = true;
-        } else {
-            completed = false;
-        }
+        Tarea task(title, description, date, id, completed);
 
-        Tarea task(title, description, date, completed);
-
-        tasks.push_back(task);
+        tasks.push_back(std::move(task));
     }
 
     sqlite3_finalize(stmt);
+
     return tasks;
 }
 
@@ -419,19 +451,29 @@ DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
         return DatabaseError::NoUserLogged;
     }
 
+    if (!new_tarea.get_id().has_value()) {
+        return DatabaseError::FailedTaskUpdate;
+    }
+
     sqlite3_stmt *stmt = nullptr;
 
-    const char *sql =
-        "UPDATE tasks "
-        "SET title = ?, description = ?, due_date = ?, completed = ? "
-        "WHERE user_id = ? "
-        "AND title = ? "
-        "AND ("
-        "    title = ? "
-        "    OR "
-        "    (SELECT COUNT(*) FROM tasks "
-        "     WHERE user_id = ? AND title = ?) < 2"
-        ");";
+    const char *sql = "UPDATE tasks "
+                      "SET title = ?, "
+                      "    description = ?, "
+                      "    due_date = ?, "
+                      "    completed = ? "
+                      "WHERE id = ? "
+                      "AND user_id = ? "
+                      "AND ("
+                      "    title = ? "
+                      "    OR "
+                      "    ("
+                      "        SELECT COUNT(*) "
+                      "        FROM tasks "
+                      "        WHERE user_id = ? "
+                      "        AND title = ?"
+                      "    ) < 2"
+                      ");";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -439,12 +481,14 @@ DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
         return DatabaseError::FailedTaskUpdate;
     }
 
+    // New title
     sqlite3_bind_text(stmt,
                       1,
                       new_tarea.get_title().c_str(),
                       -1,
                       SQLITE_TRANSIENT);
 
+    // New description
     if (new_tarea.get_description().has_value()) {
         sqlite3_bind_text(stmt,
                           2,
@@ -455,28 +499,32 @@ DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
         sqlite3_bind_null(stmt, 2);
     }
 
+    // New due date
     if (new_tarea.get_date().has_value()) {
-        auto timestamp =
+        const auto timestamp =
             std::chrono::system_clock::to_time_t(new_tarea.get_date().value());
-        sqlite3_bind_int64(stmt, 4, timestamp);
+
+        sqlite3_bind_int64(stmt, 3, static_cast<sqlite3_int64>(timestamp));
     } else {
         sqlite3_bind_null(stmt, 3);
     }
 
-    if (new_tarea.get_is_completed()) {
-        sqlite3_bind_int(stmt, 4, 1);
-    } else {
-        sqlite3_bind_int(stmt, 4, 0);
-    }
+    // Completed
+    sqlite3_bind_int(stmt, 4, new_tarea.get_is_completed() ? 1 : 0);
 
-    sqlite3_bind_int(stmt, 5, this->user.value());
+    // Task ID
+    sqlite3_bind_int(stmt, 5, new_tarea.get_id().value());
 
-    sqlite3_bind_text(stmt, 6, title.c_str(), -1, SQLITE_TRANSIENT);
+    // User ID
+    sqlite3_bind_int(stmt, 6, this->user.value());
 
+    // Original title
     sqlite3_bind_text(stmt, 7, title.c_str(), -1, SQLITE_TRANSIENT);
 
+    // User ID for duplicate check
     sqlite3_bind_int(stmt, 8, this->user.value());
 
+    // New title for duplicate check
     sqlite3_bind_text(stmt,
                       9,
                       new_tarea.get_title().c_str(),
@@ -496,6 +544,7 @@ DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
     }
 
     sqlite3_finalize(stmt);
+
     return DatabaseError::Ok;
 }
 
@@ -504,10 +553,14 @@ DatabaseError Database::delete_task(Tarea tarea) {
         return DatabaseError::NoUserLogged;
     }
 
+    if (!tarea.get_id().has_value()) {
+        return DatabaseError::FailedTaskDelete;
+    }
+
     sqlite3_stmt *stmt = nullptr;
 
     const char *sql = "DELETE FROM tasks "
-                      "WHERE user_id = ? AND title = ?;";
+                      "WHERE id = ? AND user_id = ?;";
 
     int rc = sqlite3_prepare_v2(this->db, sql, -1, &stmt, nullptr);
 
@@ -515,9 +568,11 @@ DatabaseError Database::delete_task(Tarea tarea) {
         return DatabaseError::FailedTaskDelete;
     }
 
-    sqlite3_bind_int(stmt, 1, this->user.value());
+    // Task ID
+    sqlite3_bind_int(stmt, 1, tarea.get_id().value());
 
-    sqlite3_bind_text(stmt, 2, tarea.get_title().c_str(), -1, SQLITE_TRANSIENT);
+    // User ID
+    sqlite3_bind_int(stmt, 2, this->user.value());
 
     rc = sqlite3_step(stmt);
 
@@ -526,6 +581,12 @@ DatabaseError Database::delete_task(Tarea tarea) {
         return DatabaseError::FailedTaskDelete;
     }
 
+    if (sqlite3_changes(this->db) == 0) {
+        sqlite3_finalize(stmt);
+        return DatabaseError::FailedTaskDelete;
+    }
+
     sqlite3_finalize(stmt);
+
     return DatabaseError::Ok;
 }

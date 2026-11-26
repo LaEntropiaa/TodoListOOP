@@ -4,8 +4,8 @@
 #include <chrono>
 #include <cstring>
 #include <expected>
+#include <filesystem>
 #include <format>
-#include <istream>
 #include <optional>
 #include <sqlite3.h>
 #include <sstream>
@@ -16,6 +16,15 @@ std::expected<Database, DatabaseError> Database::open() {
     Database db;
     db.user = std::nullopt;
 
+    // Ensure directory exists
+
+    if (!std::filesystem::create_directories("db")) {
+        if (!std::filesystem::is_directory("db")) {
+            return std::unexpected(DatabaseError::CantOpen);
+        }
+    }
+
+    // Open db
     if (sqlite3_open("db/main.db", &db.db) != SQLITE_OK) {
         sqlite3_close(db.db);
         return std::unexpected(DatabaseError::CantOpen);
@@ -115,7 +124,7 @@ DatabaseError Database::create_schema() {
             user_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             description TEXT,
-            due_date TEXT,
+            due_date INTEGER,
             completed BOOLEAN NOT NULL
         );
 
@@ -315,9 +324,9 @@ DatabaseError Database::insert_task(Tarea tarea) {
     }
 
     if (tarea.get_date().has_value()) {
-        std::string date = std::format("{:%Y-%m-%d}", tarea.get_date().value());
-
-        sqlite3_bind_text(stmt, 4, date.c_str(), -1, SQLITE_TRANSIENT);
+        auto timestamp =
+            std::chrono::system_clock::to_time_t(tarea.get_date().value());
+        sqlite3_bind_int64(stmt, 4, timestamp);
     } else {
         sqlite3_bind_null(stmt, 4);
     }
@@ -381,19 +390,11 @@ std::expected<std::vector<Tarea>, DatabaseError> Database::get_tasks() {
                 reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
         }
 
-        std::optional<std::chrono::year_month_day> date;
+        std::optional<std::chrono::system_clock::time_point> date;
 
         if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
-            std::istringstream stream(
-                reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
-
-            std::chrono::year_month_day parsed_date;
-
-            std::chrono::from_stream(stream, "%F", parsed_date);
-
-            if (!stream.fail() && parsed_date.ok()) {
-                date = parsed_date;
-            }
+            auto timestamp = sqlite3_column_int64(stmt, 2);
+            date = std::chrono::system_clock::from_time_t(timestamp);
         }
 
         bool completed;
@@ -455,10 +456,9 @@ DatabaseError Database::update_task(const std::string &title, Tarea new_tarea) {
     }
 
     if (new_tarea.get_date().has_value()) {
-        std::string date =
-            std::format("{:%Y-%m-%d}", new_tarea.get_date().value());
-
-        sqlite3_bind_text(stmt, 3, date.c_str(), -1, SQLITE_TRANSIENT);
+        auto timestamp =
+            std::chrono::system_clock::to_time_t(new_tarea.get_date().value());
+        sqlite3_bind_int64(stmt, 4, timestamp);
     } else {
         sqlite3_bind_null(stmt, 3);
     }

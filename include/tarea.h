@@ -12,6 +12,7 @@ class Tarea {
     std::string title;
     std::optional<std::string> description;
     std::optional<std::chrono::system_clock::time_point> date;
+    std::optional<int> id;
     bool is_completed;
 
     static std::chrono::year_month_day today();
@@ -24,9 +25,10 @@ class Tarea {
     Tarea(std::string title,
           std::optional<std::string> description,
           std::optional<std::chrono::system_clock::time_point> date,
+          std::optional<int> id,
           bool is_completed)
         : title(std::move(title)), description(std::move(description)),
-          date(std::move(date)), is_completed(is_completed) {};
+          date(std::move(date)), id(id), is_completed(is_completed) {};
 
     std::string get_title() const {
         return title;
@@ -38,6 +40,10 @@ class Tarea {
 
     std::optional<std::chrono::system_clock::time_point> get_date() const {
         return date;
+    }
+
+    std::optional<int> get_id() const {
+        return id;
     }
 
     bool get_is_completed() const {

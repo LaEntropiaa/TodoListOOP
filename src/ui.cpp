@@ -1,353 +1,925 @@
 #include "ui.h"
-#include "tarea.h"
+#include "qsizepolicy.h"
 
-#include <cstdio>
-#include <expected>
-#include <iostream>
-#include <optional>
-#include <print>
-#include <string>
+#include <QApplication>
+#include <QCheckBox>
+#include <QDate>
+#include <QDateEdit>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFile>
+#include <QFormLayout>
+#include <QFrame>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QSizePolicy>
+#include <QSpacerItem>
+#include <QStackedWidget>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
-// Inicio Luis el 08/09/2026
-//
-std::string UI::format_date(const std::chrono::year_month_day &date) {
-    unsigned day = static_cast<unsigned>(date.day());
-    unsigned month = static_cast<unsigned>(date.month());
-    int year = static_cast<int>(date.year());
+#include <chrono>
+#include <fstream>
 
-    std::string result;
+UI::UI() {
+    auto db_result = Database::open();
 
-    if (day < 10)
-        result += '0';
-    result += std::to_string(day) + "/";
+    if (!db_result.has_value()) {
+        std::exit(1);
+    }
 
-    if (month < 10)
-        result += '0';
-    result += std::to_string(month) + "/";
+    this->db = std::move(db_result.value());
 
-    result += std::to_string(year);
-
-    return result;
+    this->complete = CompleteLista();
+    this->due = DueLista();
+    this->todo = TodoLista();
+    this->inbox = InboxLista();
 }
 
-void UI::print(ListaTarea &lista) {
-    if (lista.len() < 1) {
-        std::cout << "No hay tareas." << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < lista.len(); i++) {
-        std::cout << i << ". " << lista.get_by_index(i).value().get_title();
-
-        if (lista.get_by_index(i).value().get_date().has_value()) {
-            std::cout << " ("
-                      << format_date(*lista.get_by_index(i).value().get_date())
-                      << ")";
-        }
-
-        if (lista.get_by_index(i).value().get_is_completed()) {
-            std::cout << " [Completada]";
-        } else {
-            std::cout << " [Pendiente]";
-        }
-
-        std::cout << std::endl;
-    }
+UI::~UI() {
+    this->db.close();
 }
 
-std::optional<std::string> UI::read_until(std::size_t limit) {
-    std::string result;
-    result.reserve(limit);
+int UI::run(int argc, char **argv) {
+    QApplication app(argc, argv);
 
-    std::getline(std::cin, result);
+    QFile file("styles/main.qss");
 
-    if (result.size() < 1) {
-        return std::nullopt;
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        app.setStyleSheet(file.readAll());
     }
 
-    if (result.size() > limit) {
-        result.resize(limit);
-    }
+    MainWindow window(this->db);
+    window.show();
 
-    return result;
+    return app.exec();
 }
 
-std::optional<std::chrono::year_month_day>
-UI::parse_date(const std::string &text) {
-    if (text.size() != Tarea::MAX_DATE || text[2] != '/' || text[5] != '/') {
-        return std::nullopt;
-    }
+List::List(const QString &title, QWidget *parent)
+    : QWidget(parent), title(title) {
 
-    for (size_t i = 0; i < text.size(); i++) {
-        if (i == 2 || i == 5) {
-            continue;
-        }
+    setProperty("listType", title);
 
-        if (text[i] < '0' || text[i] > '9') {
-            return std::nullopt;
-        }
-    }
+    layout = new QVBoxLayout(this);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(8);
 
-    int day = (text[0] - '0') * 10 + (text[1] - '0');
-    int month = (text[3] - '0') * 10 + (text[4] - '0');
-    int year = 0;
+    auto *title_label = new QLabel(title);
+    title_label->setObjectName("list-title");
 
-    for (size_t i = 6; i < text.size(); i++) {
-        year = year * 10 + (text[i] - '0');
-    }
+    scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
 
-    return std::chrono::year_month_day{
-        std::chrono::year{year},
-        std::chrono::month{static_cast<unsigned>(month)},
-        std::chrono::day{static_cast<unsigned>(day)}};
-}
+    auto *container = new QWidget;
 
-void UI::add_task_dialogue() {
-    std::print("Ingrese el titulo de la tarea: ");
-    auto title = read_until(Tarea::MAX_TITLE);
+    task_layout = new QVBoxLayout(container);
+    task_layout->setContentsMargins(0, 0, 0, 0);
+    task_layout->setSpacing(8);
 
-    if (!title.has_value()) {
-        show_error(TareaErr::NullTitle);
-        return;
-    }
+    task_layout->addStretch(1);
 
-    std::print("Ingrese una descripcion (opcional): ");
-    auto description = read_until(Tarea::MAX_DESC);
+    scroll->setWidget(container);
 
-    std::print("Ingrese una fecha (opcional): ");
-    auto date_text = read_until(Tarea::MAX_DATE);
+    layout->addWidget(title_label);
+    layout->addWidget(scroll, 1);
 
-    std::optional<std::chrono::year_month_day> date;
+    if (title == "Inbox") {
+        add_button = new QPushButton("+ Agregar tarea");
+        add_button->setObjectName("add-task");
 
-    if (date_text.has_value()) {
-        date = parse_date(*date_text);
+        layout->addWidget(add_button);
 
-        if (!date.has_value()) {
-            show_error(TareaErr::InvalidDate);
-            return;
-        }
-    }
-
-    Tarea nueva_tarea(title.value(), description, date, false);
-
-    TareaErr error = list.add(nueva_tarea);
-
-    if (error == TareaErr::Ok) {
-        std::println("Tarea agregada exitosamente.");
+        connect(add_button, &QPushButton::clicked, this, &List::addRequested);
     } else {
-        show_error(error);
+        add_button = nullptr;
     }
 }
 
-void UI::remove_task_dialogue() {
-    size_t index;
+void List::clearTasks() {
+    while (task_layout->count() > 1) {
+        QLayoutItem *item = task_layout->takeAt(0);
 
-    std::print("Ingrese el numero de la tarea a eliminar: ");
+        if (item->widget()) {
+            item->widget()->deleteLater();
+        }
 
-    while (!(std::cin >> index)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::print("Entrada invalida, ingrese un numero: ");
-    }
-    std::cin.ignore();
-
-    TareaErr error = list.remove(index);
-
-    if (error == TareaErr::Ok) {
-        std::println("Tarea eliminada exitosamente.");
-    } else {
-        show_error(error);
+        delete item;
     }
 }
 
-void UI::update_task_dialogue() {
-    size_t index;
+void List::addTask(const Tarea &tarea) {
+    createTaskWidget(tarea);
+}
 
-    std::print("Ingrese el numero de la tarea a actualizar: ");
+QWidget *List::taskContainer() const {
+    return scroll->widget();
+}
 
-    while (!(std::cin >> index)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::print("Entrada invalida, ingrese un numero: ");
-    }
-    std::cin.ignore();
-
-    std::print("Ingrese el nuevo titulo: ");
-    auto title = read_until(Tarea::MAX_TITLE);
-
-    if (!title.has_value()) {
-        show_error(TareaErr::NullTitle);
+void List::createTaskWidget(const Tarea &tarea) {
+    if (!tarea.get_id().has_value()) {
         return;
     }
 
-    std::print("Ingrese la nueva descripcion (opcional): ");
-    auto description = read_until(Tarea::MAX_DESC);
+    const int id = tarea.get_id().value();
 
-    std::print("Ingrese la nueva fecha (opcional): ");
-    auto date_text = read_until(Tarea::MAX_DATE);
+    auto *task = new TaskWidget(id);
 
-    std::optional<std::chrono::year_month_day> date;
+    auto *content_layout = new QVBoxLayout(task);
+    content_layout->setContentsMargins(12, 10, 12, 10);
+    content_layout->setSpacing(4);
 
-    if (date_text.has_value()) {
-        date = parse_date(*date_text);
+    auto *title_label = new QLabel(QString::fromStdString(tarea.get_title()));
 
-        if (!date.has_value()) {
-            show_error(TareaErr::InvalidDate);
-            return;
+    title_label->setObjectName("task-title");
+    title_label->setWordWrap(true);
+    title_label->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+    content_layout->addWidget(title_label);
+
+    if (tarea.get_description().has_value() &&
+        !tarea.get_description()->empty()) {
+
+        auto *description =
+            new QLabel(QString::fromStdString(*tarea.get_description()));
+
+        description->setObjectName("task-description");
+        description->setWordWrap(true);
+        description->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+        content_layout->addWidget(description);
+    }
+
+    if (tarea.get_date().has_value()) {
+        const auto date = tarea.get_date().value();
+
+        const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                                 date.time_since_epoch())
+                                 .count();
+
+        const auto qdate = QDateTime::fromSecsSinceEpoch(seconds).date();
+
+        auto *date_label = new QLabel(qdate.toString("dd/MM/yyyy"));
+
+        date_label->setObjectName("task-date");
+        date_label->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+        content_layout->addWidget(date_label);
+    }
+
+    task_layout->insertWidget(task_layout->count() - 1, task);
+
+    connect(task, &TaskWidget::clicked, this, &List::taskClicked);
+}
+
+MainWindow::MainWindow(Database &database, QWidget *parent)
+    : QMainWindow(parent), db(database) {
+
+    resize(1200, 700);
+
+    pages = new QStackedWidget;
+
+    setupLoginPage();
+    setupRegisterPage();
+    setupTaskPage();
+
+    pages->setCurrentWidget(login_page);
+
+    setCentralWidget(pages);
+}
+
+void MainWindow::setupLoginPage() {
+    login_page = new QWidget;
+
+    auto *outer = new QVBoxLayout(login_page);
+
+    outer->setContentsMargins(0, 0, 0, 0);
+
+    auto *form = new QVBoxLayout;
+
+    auto *title = new QLabel("Todo");
+    title->setObjectName("login-title");
+    title->setAlignment(Qt::AlignCenter);
+
+    auto *subtitle = new QLabel("Iniciar sesión");
+    subtitle->setObjectName("login-subtitle");
+    subtitle->setAlignment(Qt::AlignCenter);
+
+    login_user = new QLineEdit;
+    login_user->setPlaceholderText("Usuario");
+
+    login_password = new QLineEdit;
+    login_password->setPlaceholderText("Contraseña");
+    login_password->setEchoMode(QLineEdit::Password);
+
+    auto *login_button = new QPushButton("Iniciar sesión");
+    login_button->setObjectName("primary-button");
+
+    auto *register_button = new QPushButton("Crear cuenta");
+
+    form->addWidget(title);
+    form->addWidget(subtitle);
+
+    form->addSpacing(20);
+
+    form->addWidget(login_user);
+    form->addWidget(login_password);
+
+    form->addSpacing(10);
+
+    form->addWidget(login_button);
+    form->addWidget(register_button);
+
+    auto *container = new QWidget;
+    container->setObjectName("login-container");
+    container->setLayout(form);
+
+    outer->addStretch();
+    outer->addWidget(container, 0, Qt::AlignCenter);
+    outer->addStretch();
+
+    pages->addWidget(login_page);
+
+    connect(login_button, &QPushButton::clicked, this, &MainWindow::login);
+
+    connect(register_button, &QPushButton::clicked, this, [this]() {
+        register_user->clear();
+        register_password->clear();
+        register_confirm->clear();
+
+        pages->setCurrentWidget(register_page);
+    });
+}
+
+void MainWindow::setupRegisterPage() {
+    register_page = new QWidget;
+
+    auto *outer = new QVBoxLayout(register_page);
+
+    outer->setContentsMargins(0, 0, 0, 0);
+
+    auto *form = new QVBoxLayout;
+
+    auto *title = new QLabel("Crear cuenta");
+    title->setObjectName("login-title");
+    title->setAlignment(Qt::AlignCenter);
+
+    register_user = new QLineEdit;
+    register_user->setPlaceholderText("Usuario");
+
+    register_password = new QLineEdit;
+    register_password->setPlaceholderText("Contraseña");
+    register_password->setEchoMode(QLineEdit::Password);
+
+    register_confirm = new QLineEdit;
+    register_confirm->setPlaceholderText("Confirmar contraseña");
+    register_confirm->setEchoMode(QLineEdit::Password);
+
+    auto *create_button = new QPushButton("Crear cuenta");
+
+    create_button->setObjectName("primary-button");
+
+    auto *back_button = new QPushButton("Volver");
+
+    form->addWidget(title);
+
+    form->addSpacing(20);
+
+    form->addWidget(register_user);
+    form->addWidget(register_password);
+    form->addWidget(register_confirm);
+
+    form->addSpacing(10);
+
+    form->addWidget(create_button);
+    form->addWidget(back_button);
+
+    auto *container = new QWidget;
+    container->setObjectName("login-container");
+    container->setLayout(form);
+
+    outer->addStretch();
+    outer->addWidget(container, 0, Qt::AlignCenter);
+    outer->addStretch();
+
+    pages->addWidget(register_page);
+
+    connect(create_button,
+            &QPushButton::clicked,
+            this,
+            &MainWindow::createUser);
+
+    connect(back_button, &QPushButton::clicked, this, [this]() {
+        pages->setCurrentWidget(login_page);
+    });
+}
+
+void MainWindow::login() {
+    const QString user = login_user->text().trimmed();
+    const QString password = login_password->text();
+
+    if (user.isEmpty() || password.isEmpty()) {
+        QMessageBox::warning(this,
+                             "Iniciar sesión",
+                             "Debes introducir usuario y contraseña.");
+
+        return;
+    }
+
+    const auto result = db.login(user.toStdString(), password.toStdString());
+
+    if (result != DatabaseError::Ok) {
+        QMessageBox::critical(this,
+                              "Error al iniciar sesión",
+                              errorMessage(result));
+
+        return;
+    }
+
+    login_password->clear();
+
+    reloadTasks();
+
+    pages->setCurrentWidget(task_page);
+}
+
+void MainWindow::createUser() {
+    const QString user = register_user->text().trimmed();
+    const QString password = register_password->text();
+    const QString confirm = register_confirm->text();
+
+    if (user.isEmpty()) {
+        QMessageBox::warning(this,
+                             "Crear cuenta",
+                             "El usuario no puede estar vacío.");
+
+        return;
+    }
+
+    if (password.isEmpty()) {
+        QMessageBox::warning(this,
+                             "Crear cuenta",
+                             "La contraseña no puede estar vacía.");
+
+        return;
+    }
+
+    if (password != confirm) {
+        QMessageBox::warning(this,
+                             "Crear cuenta",
+                             "Las contraseñas no coinciden.");
+
+        return;
+    }
+
+    const auto result =
+        db.create_user(user.toStdString(), password.toStdString());
+
+    if (result != DatabaseError::Ok) {
+        QMessageBox::critical(this,
+                              "Error al crear la cuenta",
+                              errorMessage(result));
+
+        return;
+    }
+
+    QMessageBox::information(this,
+                             "Cuenta creada",
+                             "La cuenta se creó correctamente.");
+
+    register_user->clear();
+    register_password->clear();
+    register_confirm->clear();
+
+    pages->setCurrentWidget(login_page);
+}
+
+void MainWindow::setupTaskPage() {
+    task_page = new QWidget;
+
+    auto *main_layout = new QVBoxLayout(task_page);
+
+    main_layout->setContentsMargins(16, 16, 16, 16);
+    main_layout->setSpacing(12);
+
+    auto *header = new QHBoxLayout;
+
+    auto *title = new QLabel("Todo");
+    title->setObjectName("main-title");
+
+    auto *logout_button = new QPushButton("Cerrar sesión");
+    logout_button->setObjectName("logout-button");
+
+    header->addWidget(title);
+    header->addStretch();
+    header->addWidget(logout_button);
+
+    auto *lists = new QHBoxLayout;
+    lists->setSpacing(12);
+
+    inbox_list = new List("Inbox");
+    todo_list = new List("Todo");
+    due_list = new List("Due");
+    completed_list = new List("Completed");
+
+    lists->addWidget(inbox_list, 1);
+    lists->addWidget(todo_list, 1);
+    lists->addWidget(due_list, 1);
+    lists->addWidget(completed_list, 1);
+
+    main_layout->addLayout(header);
+    main_layout->addLayout(lists, 1);
+
+    pages->addWidget(task_page);
+
+    connect(logout_button, &QPushButton::clicked, this, &MainWindow::logout);
+
+    connect(inbox_list,
+            &List::addRequested,
+            this,
+            &MainWindow::showCreateTaskDialog);
+
+    connect(inbox_list,
+            &List::taskClicked,
+            this,
+            &MainWindow::showEditTaskDialog);
+
+    connect(todo_list,
+            &List::taskClicked,
+            this,
+            &MainWindow::showEditTaskDialog);
+
+    connect(due_list,
+            &List::taskClicked,
+            this,
+            &MainWindow::showEditTaskDialog);
+
+    connect(completed_list,
+            &List::taskClicked,
+            this,
+            &MainWindow::showEditTaskDialog);
+}
+
+void MainWindow::logout() {
+    pages->setCurrentWidget(login_page);
+    login_user->clear();
+    login_password->clear();
+}
+
+void MainWindow::reloadTasks() {
+    inbox_list->clearTasks();
+    todo_list->clearTasks();
+    due_list->clearTasks();
+    completed_list->clearTasks();
+
+    const auto result = db.get_tasks();
+
+    if (!result.has_value()) {
+        QMessageBox::critical(this, "Error", errorMessage(result.error()));
+
+        return;
+    }
+
+    for (const auto &task : result.value()) {
+        List *list = listForTask(task);
+
+        if (list != nullptr) {
+            list->addTask(task);
+        }
+    }
+}
+
+List *MainWindow::listForTask(const Tarea &tarea) {
+    if (tarea.get_is_completed()) {
+        return completed_list;
+    }
+
+    if (!tarea.get_date().has_value()) {
+        return inbox_list;
+    }
+
+    if (isOverdue(tarea)) {
+        return due_list;
+    }
+
+    return todo_list;
+}
+
+bool MainWindow::isOverdue(const Tarea &tarea) {
+    if (!tarea.get_date().has_value()) {
+        return false;
+    }
+
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                             tarea.get_date()->time_since_epoch())
+                             .count();
+
+    const QDate date = QDateTime::fromSecsSinceEpoch(seconds).date();
+
+    return date < QDate::currentDate();
+}
+
+bool MainWindow::isTodayOrFuture(const Tarea &tarea) {
+    if (!tarea.get_date().has_value()) {
+        return false;
+    }
+
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                             tarea.get_date()->time_since_epoch())
+                             .count();
+
+    const QDate date = QDateTime::fromSecsSinceEpoch(seconds).date();
+
+    return date >= QDate::currentDate();
+}
+
+void MainWindow::showCreateTaskDialog() {
+    QDialog dialog(this);
+
+    dialog.setWindowTitle("Nueva tarea");
+    dialog.setModal(true);
+
+    auto *layout = new QVBoxLayout(&dialog);
+
+    auto *title = new QLineEdit;
+    title->setPlaceholderText("Título");
+
+    auto *description = new QTextEdit;
+    description->setPlaceholderText("Descripción");
+
+    auto *has_date = new QCheckBox("Tiene fecha de vencimiento");
+
+    auto *date = new QDateEdit(QDate::currentDate());
+    date->setCalendarPopup(true);
+    date->setDisplayFormat("dd/MM/yyyy");
+    date->setEnabled(false);
+
+    auto *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    layout->addWidget(new QLabel("Título"));
+    layout->addWidget(title);
+
+    layout->addWidget(new QLabel("Descripción"));
+    layout->addWidget(description);
+
+    layout->addWidget(has_date);
+    layout->addWidget(date);
+    layout->addWidget(buttons);
+
+    connect(has_date, &QCheckBox::toggled, date, &QDateEdit::setEnabled);
+
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QString title_text = title->text().trimmed();
+
+    if (title_text.isEmpty()) {
+        QMessageBox::warning(this,
+                             "Nueva tarea",
+                             "El título no puede estar vacío.");
+
+        return;
+    }
+
+    if (title_text.size() > static_cast<int>(Tarea::MAX_TITLE)) {
+        QMessageBox::warning(this,
+                             "Nueva tarea",
+                             "El título es demasiado largo.");
+
+        return;
+    }
+
+    const QString description_text = description->toPlainText();
+
+    if (description_text.size() > static_cast<int>(Tarea::MAX_DESC)) {
+
+        QMessageBox::warning(this,
+                             "Nueva tarea",
+                             "La descripción es demasiado larga.");
+
+        return;
+    }
+
+    std::optional<std::string> description_value;
+
+    if (!description_text.isEmpty()) {
+        description_value = description_text.toStdString();
+    }
+
+    std::optional<std::chrono::system_clock::time_point> date_value;
+
+    if (has_date->isChecked()) {
+        const auto seconds = date->date().startOfDay().toSecsSinceEpoch();
+
+        date_value = std::chrono::system_clock::time_point(
+            std::chrono::seconds(seconds));
+    }
+
+    Tarea task(title_text.toStdString(),
+               description_value,
+               date_value,
+               std::nullopt,
+               false);
+
+    const auto result = db.insert_task(task);
+
+    if (result != DatabaseError::Ok) {
+        QMessageBox::critical(this,
+                              "Error al crear tarea",
+                              errorMessage(result));
+
+        return;
+    }
+
+    reloadTasks();
+}
+
+void MainWindow::showEditTaskDialog(int id) {
+    const auto result = db.get_tasks();
+
+    if (!result.has_value()) {
+        QMessageBox::critical(this, "Error", errorMessage(result.error()));
+
+        return;
+    }
+
+    std::optional<Tarea> current;
+
+    for (const auto &task : result.value()) {
+        if (task.get_id().has_value() && task.get_id().value() == id) {
+
+            current = task;
+            break;
         }
     }
 
-    Tarea nueva_tarea(title.value(), description, date, false);
+    if (!current.has_value()) {
+        QMessageBox::critical(this, "Error", "No se encontró la tarea.");
 
-    TareaErr error = list.add(nueva_tarea);
-
-    if (error != TareaErr::Ok) {
-        show_error(error);
         return;
     }
 
-    error = list.remove(index);
+    QDialog dialog(this);
 
-    if (error == TareaErr::Ok) {
-        std::println("Tarea actualizada exitosamente.");
+    dialog.setWindowTitle("Editar tarea");
+    dialog.setModal(true);
+
+    auto *layout = new QVBoxLayout(&dialog);
+
+    auto *title = new QLineEdit(QString::fromStdString(current->get_title()));
+
+    auto *description = new QTextEdit;
+
+    if (current->get_description().has_value()) {
+        description->setPlainText(
+            QString::fromStdString(current->get_description().value()));
+    }
+
+    auto *has_date = new QCheckBox("Tiene fecha de vencimiento");
+
+    auto *date = new QDateEdit(QDate::currentDate());
+
+    date->setCalendarPopup(true);
+    date->setDisplayFormat("dd/MM/yyyy");
+
+    if (current->get_date().has_value()) {
+        has_date->setChecked(true);
+
+        const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                                 current->get_date()->time_since_epoch())
+                                 .count();
+
+        date->setDate(QDateTime::fromSecsSinceEpoch(seconds).date());
     } else {
-        show_error(error);
+        date->setEnabled(false);
     }
-}
 
-void UI::complete_task_dialogue() {
-    size_t index;
+    auto *completed = new QCheckBox("Completada");
 
-    std::print("Ingrese el numero de la tarea a marcar como completada: ");
+    completed->setChecked(current->get_is_completed());
 
-    while (!(std::cin >> index)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::cout << "Entrada invalida, ingrese un numero: ";
-    }
-    std::cin.ignore();
+    auto *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
 
-    std::expected<Tarea, TareaErr> tarea = list.get_by_index(index);
+    layout->addWidget(new QLabel("Título"));
+    layout->addWidget(title);
 
-    if (!tarea.has_value()) {
-        show_error(tarea.error());
+    layout->addWidget(new QLabel("Descripción"));
+    layout->addWidget(description);
+
+    layout->addWidget(has_date);
+    layout->addWidget(date);
+
+    layout->addWidget(completed);
+
+    layout->addWidget(buttons);
+
+    connect(has_date, &QCheckBox::toggled, date, &QDateEdit::setEnabled);
+
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted) {
         return;
     }
 
-    Tarea actualizada = tarea.value();
-    actualizada.set_completed(true);
+    const QString title_text = title->text().trimmed();
 
-    std::expected<Tarea, TareaErr> resultado = list.edit(index, actualizada);
+    if (title_text.isEmpty()) {
+        QMessageBox::warning(this,
+                             "Editar tarea",
+                             "El título no puede estar vacío.");
 
-    if (resultado.has_value()) {
-        std::println("Tarea marcada como completada.");
-    } else {
-        show_error(resultado.error());
+        return;
     }
+
+    if (title_text.size() > static_cast<int>(Tarea::MAX_TITLE)) {
+
+        QMessageBox::warning(this,
+                             "Editar tarea",
+                             "El título es demasiado largo.");
+
+        return;
+    }
+
+    const QString description_text = description->toPlainText();
+
+    if (description_text.size() > static_cast<int>(Tarea::MAX_DESC)) {
+
+        QMessageBox::warning(this,
+                             "Editar tarea",
+                             "La descripción es demasiado larga.");
+
+        return;
+    }
+
+    std::optional<std::string> description_value;
+
+    if (!description_text.isEmpty()) {
+        description_value = description_text.toStdString();
+    }
+
+    std::optional<std::chrono::system_clock::time_point> date_value;
+
+    if (has_date->isChecked()) {
+        const auto seconds = date->date().startOfDay().toSecsSinceEpoch();
+
+        date_value = std::chrono::system_clock::time_point(
+            std::chrono::seconds(seconds));
+    }
+
+    Tarea new_task(title_text.toStdString(),
+                   description_value,
+                   date_value,
+                   current->get_id(),
+                   completed->isChecked());
+
+    const auto update_result = db.update_task(current->get_title(), new_task);
+
+    if (update_result != DatabaseError::Ok) {
+        QMessageBox::critical(this,
+                              "Error al actualizar",
+                              errorMessage(update_result));
+
+        return;
+    }
+
+    reloadTasks();
 }
 
-void UI::clear_screen() {
-    std::print("\033[2J\033[1;1H");
+QString MainWindow::errorMessage(DatabaseError error) {
+    switch (error) {
+    case DatabaseError::Ok:
+        return "Operación realizada correctamente.";
+
+    case DatabaseError::CantOpen:
+        return "No se pudo abrir la base de datos.";
+
+    case DatabaseError::UserNotFound:
+        return "El usuario no existe.";
+
+    case DatabaseError::PasswordNotFound:
+        return "No se encontró la contraseña del usuario.";
+
+    case DatabaseError::Corrupted:
+        return "La base de datos está dañada.";
+
+    case DatabaseError::CreateSchema:
+        return "No se pudo crear el esquema de la base de datos.";
+
+    case DatabaseError::BadVersion:
+        return "La versión de la base de datos no es compatible.";
+
+    case DatabaseError::IncorrectPassword:
+        return "La contraseña es incorrecta.";
+
+    case DatabaseError::NotUniqueUserName:
+        return "Ese nombre de usuario ya está en uso.";
+
+    case DatabaseError::FailedToSavePassword:
+        return "No se pudo guardar la contraseña.";
+
+    case DatabaseError::NoUserLogged:
+        return "No hay ningún usuario iniciado.";
+
+    case DatabaseError::FailedTaskInsert:
+        return "No se pudo guardar la tarea.";
+
+    case DatabaseError::BadQuery:
+        return "No se pudo ejecutar la consulta.";
+
+    case DatabaseError::InvalidTask:
+        return "La tarea no es válida.";
+
+    case DatabaseError::TaskAlreadyExists:
+        return "Ya existe una tarea con ese título.";
+
+    case DatabaseError::FailedTaskUpdate:
+        return "No se pudo actualizar la tarea.";
+
+    case DatabaseError::FailedTaskDelete:
+        return "No se pudo eliminar la tarea.";
+    }
+
+    return "Ocurrió un error desconocido.";
 }
 
-void UI::show_error(TareaErr e) {
-    switch (e) {
-    case TareaErr::InvalidOption:
-        std::println(stderr, "Error: Opcion Invalida");
+QString MainWindow::errorMessage(TareaErr error) {
+    switch (error) {
+    case TareaErr::Ok:
+        return "Operación realizada correctamente.";
+
     case TareaErr::NullTitle:
-        std::println(stderr, "Error: El titulo no puede estar vacio.");
-        break;
+        return "El título no puede estar vacío.";
+
     case TareaErr::OverSizeTitle:
-        std::println(stderr, "Error: El titulo es demasiado largo.");
-        break;
+        return "El título supera el límite permitido.";
 
     case TareaErr::OverSizeDesc:
-        std::println(stderr, "Error: La descripcion es demasiado larga.");
-        break;
+        return "La descripción supera el límite permitido.";
 
     case TareaErr::InvalidDate:
-        std::println(stderr, "Error: La fecha ingresada no es valida.");
-        break;
+        return "La fecha no es válida.";
 
     case TareaErr::IndexErr:
-        std::println(stderr, "Error: El indice de la tarea no existe.");
-        break;
+        return "El índice de la tarea no es válido.";
 
     case TareaErr::EmptyList:
-        std::println(stderr, "Error: La lista esta vacia.");
-        break;
+        return "La lista de tareas está vacía.";
+
+    case TareaErr::InvalidOption:
+        return "La opción seleccionada no es válida.";
 
     case TareaErr::NotOverdue:
-        std::println(stderr, "Error: la tarea aun no esta vencida.");
-        break;
+        return "La tarea todavía no está vencida.";
+
+    case TareaErr::Overdue:
+        return "La tarea está vencida.";
 
     case TareaErr::AlreadyCompleted:
-        std::println(stderr,
-                     "Error: no se puede agregar una tarea ya completada.");
-        break;
+        return "La tarea ya está completada.";
 
-    case TareaErr::Ok:
-        break;
+    case TareaErr::NotCompleted:
+        return "La tarea no está completada.";
     }
+
+    return "Ocurrió un error desconocido.";
 }
 
-void UI::print_list() {
-    UI::print(this->list);
-}
-
-void UI::read_option() {
-    int option;
-
-    std::println("Seleccione una opción:");
-    std::println("1. Agregar tarea");
-    std::println("2. Eliminar tarea");
-    std::println("3. Actualizar tarea");
-    std::println("4. Mostrar tareas");
-    std::println("5. Marcar tarea como completada");
-    std::println("6. Salir");
-
-    while (!(std::cin >> option)) {
-        std::cin.clear();
-        std::cin.ignore(10000, '\n');
-        std::print("Entrada invalida, ingrese un numero: ");
+QString MainWindow::formatDate(
+    const std::optional<std::chrono::system_clock::time_point> &date) {
+    if (!date.has_value()) {
+        return "Sin fecha";
     }
-    std::cin.ignore();
 
-    switch (option) {
-    case 1:
-        add_task_dialogue();
-        break;
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                             date->time_since_epoch())
+                             .count();
 
-    case 2:
-        remove_task_dialogue();
-        break;
+    return QDateTime::fromSecsSinceEpoch(seconds).date().toString("dd/MM/yyyy");
+}
 
-    case 3:
-        update_task_dialogue();
-        break;
+TaskWidget::TaskWidget(int id, QWidget *parent) : QFrame(parent), id(id) {
 
-    case 4:
-        UI::print(this->list);
-        break;
+    setObjectName("task");
+    setCursor(Qt::PointingHandCursor);
+}
 
-    case 5:
-        complete_task_dialogue();
-        break;
-
-    case 6:
-        is_on = false;
-        break;
-
-    default:
-        show_error(TareaErr::InvalidOption);
-        break;
+void TaskWidget::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        emit clicked(id);
     }
+
+    QFrame::mousePressEvent(event);
 }
-
-bool UI::is_running() {
-    return is_on;
-}
-
-UI::UI() : is_on(true) {}
-
-UI::~UI() {}

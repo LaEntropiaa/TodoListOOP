@@ -1,7 +1,10 @@
 #pragma once
 
 #include "database.h"
+#include "qwidget.h"
 #include "tarea.h"
+
+#include <QMainWindow>
 
 enum class UIErrorType { Tarea, Database, Ok };
 
@@ -26,4 +29,9 @@ class UI {
     ~UI();
 
     int run(int argc, char **argv);
+};
+
+class MainWindow : public QMainWindow {
+  public:
+    explicit MainWindow(QWidget *parent = nullptr);
 };

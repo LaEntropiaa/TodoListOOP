@@ -4,7 +4,9 @@
 #include "qtmetamacros.h"
 #include "tarea.h"
 
+#include <QFrame>
 #include <QMainWindow>
+#include <QMouseEvent>
 #include <QWidget>
 
 class QLabel;
@@ -40,6 +42,22 @@ class List : public QWidget {
   signals:
     void taskClicked(int id);
     void addRequested();
+};
+
+class TaskWidget : public QFrame {
+    Q_OBJECT
+
+  public:
+    explicit TaskWidget(int id, QWidget *parent = nullptr);
+
+  signals:
+    void clicked(int id);
+
+  protected:
+    void mousePressEvent(QMouseEvent *event) override;
+
+  private:
+    int id;
 };
 
 class MainWindow : public QMainWindow {

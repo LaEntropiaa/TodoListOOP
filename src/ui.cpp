@@ -1,4 +1,5 @@
 #include "ui.h"
+#include "qsizepolicy.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -15,6 +16,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSizePolicy>
 #include <QSpacerItem>
 #include <QStackedWidget>
 #include <QTextEdit>
@@ -123,18 +125,21 @@ void List::createTaskWidget(const Tarea &tarea) {
         return;
     }
 
-    auto *button = new QPushButton;
-    button->setObjectName("task");
+    const int id = tarea.get_id().value();
 
-    auto *layout = new QVBoxLayout(button);
-    layout->setContentsMargins(12, 10, 12, 10);
-    layout->setSpacing(4);
+    auto *task = new TaskWidget(id);
+
+    auto *content_layout = new QVBoxLayout(task);
+    content_layout->setContentsMargins(12, 10, 12, 10);
+    content_layout->setSpacing(4);
 
     auto *title_label = new QLabel(QString::fromStdString(tarea.get_title()));
 
     title_label->setObjectName("task-title");
+    title_label->setWordWrap(true);
+    title_label->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-    layout->addWidget(title_label);
+    content_layout->addWidget(title_label);
 
     if (tarea.get_description().has_value() &&
         !tarea.get_description()->empty()) {
@@ -144,33 +149,31 @@ void List::createTaskWidget(const Tarea &tarea) {
 
         description->setObjectName("task-description");
         description->setWordWrap(true);
+        description->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-        layout->addWidget(description);
+        content_layout->addWidget(description);
     }
 
     if (tarea.get_date().has_value()) {
-        auto date = tarea.get_date().value();
+        const auto date = tarea.get_date().value();
 
         const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
                                  date.time_since_epoch())
                                  .count();
 
-        auto qdate = QDateTime::fromSecsSinceEpoch(seconds).date();
+        const auto qdate = QDateTime::fromSecsSinceEpoch(seconds).date();
 
         auto *date_label = new QLabel(qdate.toString("dd/MM/yyyy"));
 
         date_label->setObjectName("task-date");
+        date_label->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-        layout->addWidget(date_label);
+        content_layout->addWidget(date_label);
     }
 
-    const int id = tarea.get_id().value();
+    task_layout->insertWidget(task_layout->count() - 1, task);
 
-    task_layout->insertWidget(task_layout->count() - 1, button);
-
-    connect(button, &QPushButton::clicked, this, [this, id]() {
-        emit taskClicked(id);
-    });
+    connect(task, &TaskWidget::clicked, this, &List::taskClicked);
 }
 
 MainWindow::MainWindow(Database &database, QWidget *parent)
@@ -905,4 +908,18 @@ QString MainWindow::formatDate(
                              .count();
 
     return QDateTime::fromSecsSinceEpoch(seconds).date().toString("dd/MM/yyyy");
+}
+
+TaskWidget::TaskWidget(int id, QWidget *parent) : QFrame(parent), id(id) {
+
+    setObjectName("task");
+    setCursor(Qt::PointingHandCursor);
+}
+
+void TaskWidget::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        emit clicked(id);
+    }
+
+    QFrame::mousePressEvent(event);
 }
